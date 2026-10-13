@@ -1078,18 +1078,22 @@ function linkPkg(ops){
     })};
 }
 function writeLink(){try{localStorage.setItem(LINK_KEY,JSON.stringify(linkPkg(state.list)))}catch(e){}}
-function download(name,text,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+/* en claude.ai la descarga pasa por la capacidad "downloads"; fuera de ahí, enlace directo */
+async function download(name,text,type){
+  let dl=null;try{dl=window.claude&&typeof window.claude.use==="function"?await window.claude.use("downloads"):null}catch(e){dl=null}
+  if(dl){try{await dl.save({filename:name,data:text});return true}catch(e){if(e&&e.code==="declined")return false;throw e}}
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);return true;
+}
 function exportLink(op){
   const name="Viajes_DTM_"+(op.equipo||"equipo").replace(/[^\w\-]+/g,"_")+"_"+isoToday()+".json";
-  try{download(name,JSON.stringify(linkPkg([op]),null,1),"application/json");toast("Archivo de viajes descargado. Importalo desde Seguimiento DTM con el botón «Importar viajes».")}
-  catch(e){toast("No se pudo generar la descarga en esta vista.",true)}
+  download(name,JSON.stringify(linkPkg([op]),null,1),"application/json").then(ok=>{if(ok)toast("Archivo de viajes descargado. Importalo desde Seguimiento DTM con el botón «Importar viajes».")},()=>toast("No se pudo generar la descarga en esta vista.",true));
 }
 function exportCsv(op){
   const q=v=>{const s=String(v==null?"":v);return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
   const L=[["Equipo","Origen","Destino","Carga","Categoría","Patente","Transportista","Chofer","Estado","Salida","Llegada","Duración","Día de plan (llegada)","Fuente","Desvíos"].join(";")];
   op.viajes.forEach(v=>{const c=carga(op,v.cargaId)||{},k=camion(op,v.camionId)||{};
     L.push([op.equipo,op.origen.nombre,op.destino.nombre,c.nombre,c.cat,k.patente,k.transportista,k.chofer,ESTADOS[v.estado].t,fmtDT(v.salida),fmtDT(v.llegada),v.salida&&v.llegada?fmtDur(v.llegada-v.salida):"",v.llegada?dayOf(op,v.llegada):"",FUENTES[v.fuente]||"",op.alertas.filter(a=>a.viajeId===v.id&&a.tipo==="desvio").length].map(q).join(";"))});
-  try{download("Viajes_"+(op.equipo||"equipo").replace(/[^\w\-]+/g,"_")+"_"+isoToday()+".csv","﻿"+L.join("\n"),"text/csv")}catch(e){toast("No se pudo generar la descarga en esta vista.",true)}
+  download("Viajes_"+(op.equipo||"equipo").replace(/[^\w\-]+/g,"_")+"_"+isoToday()+".csv","﻿"+L.join("\n"),"text/csv").catch(()=>toast("No se pudo generar la descarga en esta vista.",true));
 }
 
 /* ---------- archivos: ruta (KML / GPX / GeoJSON) y posiciones (CSV) ---------- */
