@@ -6,6 +6,8 @@ Aplicación web responsive para registrar, notificar por correo y consultar los 
 - **Correo real:** SMTP corporativo (Nodemailer) **o** Microsoft Graph API (Microsoft 365). No hay envío simulado.
 - **Frontend:** SPA en HTML/CSS/JS sin frameworks, servida por el mismo servidor. Español, fechas DD/MM/AAAA, litros con separador de miles.
 
+> **Instalación en un servidor (Windows, Linux o Docker):** ver [INSTALACION.md](INSTALACION.md).
+
 ## Puesta en marcha
 
 ```bash

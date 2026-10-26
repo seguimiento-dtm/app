@@ -1,0 +1,7 @@
+node_modules
+data
+.env
+demo
+test
+*.db
+*.db-*
