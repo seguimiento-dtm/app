@@ -6,9 +6,11 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server/index.js",
     "crear-admin": "node --disable-warning=ExperimentalWarning scripts/create-admin.js",
-    "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.js'"
+    "test": "node --disable-warning=ExperimentalWarning --test 'test/*.test.js'",
+    "importar-pads": "node --disable-warning=ExperimentalWarning scripts/importar-pads.js"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "express": "^4.22.3",
     "nodemailer": "^6.10.1"
   },

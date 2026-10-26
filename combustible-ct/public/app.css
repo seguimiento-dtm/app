@@ -154,6 +154,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 .tbl tbody tr.click{cursor:pointer}
 .tbl tbody tr.click:hover{background:#F6F9FC}
 .tbl .r{text-align:right}
+.tbl .actions{flex-wrap:nowrap;justify-content:flex-end}
+.pad-search{max-width:360px;margin-bottom:12px}
 .tbl th button{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
 .tbl th button:focus-visible{outline:2px solid #F2A900}
 .tbl th .arrow{opacity:.35}

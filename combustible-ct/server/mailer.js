@@ -19,7 +19,7 @@ function rows(order) {
     ['Número de pedido', order.order_number],
     ['Unidad operativa', order.unit],
     ['PAD / Locación de destino', order.pad_code + (order.pad_area ? ` (${order.pad_area})` : '')],
-    ['Pozos asociados', order.pad_wells || '—'],
+    ['Pozo', order.well || '—'],
     ['Cantidad solicitada', fmt.liters(order.liters)],
     ['Fecha y hora de solicitud', fmt.dateTime(order.request_date)],
     ['Fecha requerida de entrega', fmt.date(order.required_date)],
@@ -55,7 +55,7 @@ function buildHtml(order) {
           <div style="font-size:20px;font-weight:700;margin-top:4px">Pedido de combustible ${esc(order.order_number)}</div>
         </td></tr>
         <tr><td style="padding:18px 22px 6px;color:#14212E;font-size:14px">
-          Se solicita la entrega de <b>${esc(fmt.liters(order.liters))}</b> de combustible en <b>${esc(order.pad_code)}</b>
+          Se solicita la entrega de <b>${esc(fmt.liters(order.liters))}</b> de combustible en <b>${esc(order.pad_code)}</b>${order.well && order.well !== order.pad_code ? ` – pozo <b>${esc(order.well)}</b>` : ''}
           para el día <b>${esc(fmt.date(order.required_date))}</b>.
         </td></tr>
         <tr><td style="padding:12px 22px">

@@ -20,7 +20,11 @@ Al iniciar, la consola informa si el correo quedó configurado y, si no, qué va
 
 Pasos iniciales dentro de la aplicación (como administrador):
 
-1. **Administración de PAD** → cargar los PAD reales (código, área/yacimiento, pozos asociados). La aplicación **no trae PAD precargados**.
+1. **Administración de PAD** → **Importar listado Excel** y elegir `datos/WP_por_Pozos.xlsx` (92 Well PAD, 227 pozos). Se muestra una vista previa antes de confirmar. También se puede hacer por consola:
+   ```bash
+   npm run importar-pads -- datos/WP_por_Pozos.xlsx            # vista previa
+   npm run importar-pads -- datos/WP_por_Pozos.xlsx --aplicar  # importa
+   ```
 2. **Usuarios** → crear los usuarios con perfil *Operador* o *Administrador*.
 3. **Configuración** → verificar el destinatario (por defecto `mperez5@pan-energy.com`), opcionalmente agregar CC, y usar **Enviar correo de prueba**.
 
@@ -50,6 +54,17 @@ En Microsoft 365, la cuenta de servicio debe tener habilitado *SMTP AUTH* (Authe
 4. Completar `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET` y `GRAPH_SENDER` (buzón remitente).
 
 Si el correo no está configurado o falla, el pedido **igual se registra**, queda con notificación *Error de envío* (“Pendiente de notificación”) y se puede **reintentar** desde el resultado del pedido o desde el detalle en el Historial, sin crear otro pedido. Cada intento queda registrado (destinatarios, asunto, resultado y error).
+
+## Listado de Well PAD y pozos
+
+El archivo debe tener una columna de Well PAD (encabezado con “pad”, p. ej. `Oper.Well Pad`) y una de pozo (encabezado con “pozo”), una fila por pozo. Las filas repetidas se unifican y las filas sin Well PAD (p. ej. `Falla1`, `IIT`, `Abandono`) se omiten y se informan. Al reimportar un listado actualizado:
+
+- los PAD nuevos se crean;
+- en los PAD existentes, la lista de pozos se reemplaza por la del archivo (y se reactivan si estaban inactivos);
+- los PAD que no figuran en el archivo no se modifican (se informa cuántos son, para desactivarlos a mano si corresponde);
+- los pedidos ya registrados conservan el PAD y el pozo que tenían.
+
+En **Nuevo Pedido** se elige primero el Well PAD y luego el pozo al que corresponde (o “PAD completo (varios pozos)”). El pozo figura en el correo, en el historial (también se puede buscar por pozo), en el detalle y en la exportación.
 
 ## Funcionalidades
 

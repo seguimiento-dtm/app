@@ -112,6 +112,9 @@ function migrate(db) {
       value TEXT NOT NULL
     );
   `);
+  // v2: pozo de destino del pedido (copia histórica, igual que el PAD).
+  const cols = db.prepare('PRAGMA table_info(orders)').all().map((c) => c.name);
+  if (!cols.includes('well')) db.exec("ALTER TABLE orders ADD COLUMN well TEXT NOT NULL DEFAULT ''");
   const ins = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) ins.run(k, v);
 }
@@ -147,4 +150,12 @@ function nextOrderNumber(db, year) {
   return `CT-${year}-${String(last).padStart(5, '0')}`;
 }
 
-module.exports = { open, tx, audit, getSettings, nextOrderNumber, ORDER_STATUS, NOTIF_STATUS };
+// Lista de pozos de un PAD (se guardan separados por coma en pads.wells).
+function splitWells(s) {
+  const seen = new Set();
+  return String(s || '').split(/[,;\n]/).map((w) => w.trim()).filter((w) => w && !seen.has(w.toLowerCase()) && seen.add(w.toLowerCase()));
+}
+
+const WHOLE_PAD = 'PAD completo (varios pozos)';
+
+module.exports = { splitWells, WHOLE_PAD, open, tx, audit, getSettings, nextOrderNumber, ORDER_STATUS, NOTIF_STATUS };

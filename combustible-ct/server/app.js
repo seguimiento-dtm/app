@@ -5,6 +5,7 @@ const dbm = require('./db');
 const auth = require('./auth');
 const fmt = require('./format');
 const mail = require('./mailer');
+const padImport = require('./pad-import');
 
 const { ORDER_STATUS, NOTIF_STATUS } = dbm;
 const MAX_LITERS = 1000000;
@@ -122,7 +123,7 @@ function createApp({ db, mailer, secureCookies = false }) {
     const code = String(b.code || '').trim();
     if (!code) throw new HttpError(400, 'El nombre o código del PAD es obligatorio.');
     if (code.length > 80) throw new HttpError(400, 'El código del PAD no puede superar 80 caracteres.');
-    return { code, wells: String(b.wells || '').trim().slice(0, 500), area: String(b.area || '').trim().slice(0, 120), active: b.active === false ? 0 : 1 };
+    return { code, wells: dbm.splitWells(b.wells).join(', ').slice(0, 10000), area: String(b.area || '').trim().slice(0, 120), active: b.active === false ? 0 : 1 };
   }
 
   api.post('/pads', auth.requireAdmin, wrap((req, res) => {
@@ -146,11 +147,25 @@ function createApp({ db, mailer, secureCookies = false }) {
     res.json(db.prepare('SELECT * FROM pads WHERE id = ?').get(prev.id));
   }));
 
+  // Importación del listado de Well PAD / pozos (Excel o CSV). ?aplicar=1 confirma; sin él solo muestra la vista previa.
+  api.post('/pads/import', auth.requireAdmin, express.raw({ type: () => true, limit: '10mb' }), wrap(async (req, res) => {
+    if (!req.body || !req.body.length) throw new HttpError(400, 'Adjunte el archivo Excel (.xlsx) o CSV.');
+    let filename = String(req.get('x-filename') || '');
+    try { filename = decodeURIComponent(filename); } catch { /* nombre sin codificar */ }
+    filename = filename.slice(0, 200);
+    let parsed;
+    try { parsed = await padImport.parse(req.body, filename); } catch (e) { throw new HttpError(400, `No se pudo leer el archivo: ${e.message}`); }
+    if (!parsed.pads.size) throw new HttpError(400, 'El archivo no contiene Well PAD.');
+    const apply = req.query.aplicar === '1';
+    const summary = padImport.apply(db, parsed, req.user, { dryRun: !apply, filename });
+    res.json({ applied: apply, pads: parsed.pads.size, rows: parsed.rows, skipped: parsed.skipped, conflicts: parsed.conflicts, ...summary });
+  }));
+
   // ---------- Pedidos ----------
   const getOrder = (id) => db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(id));
   const canTouch = (user, o) => user.role === 'administrador' || o.requester_id === user.id;
 
-  function validateOrder(b, user, { requestIso, keepPad = false }) {
+  function validateOrder(b, user, { requestIso, keepPad = false, prevWell = null }) {
     const pad = db.prepare('SELECT * FROM pads WHERE id = ?').get(Number(b.pad_id));
     if (!pad) throw new HttpError(400, 'Seleccione un PAD / locación válido.');
     if (!pad.active && !keepPad) throw new HttpError(400, `El PAD ${pad.code} está inactivo y no admite nuevos pedidos.`);
@@ -164,7 +179,13 @@ function createApp({ db, mailer, secureCookies = false }) {
     if (b.required_date < localDate(requestIso)) throw new HttpError(400, 'La fecha requerida de entrega no puede ser anterior a la fecha de solicitud.');
     const observations = String(b.observations || '').trim();
     if (observations.length > 2000) throw new HttpError(400, 'Las observaciones no pueden superar 2.000 caracteres.');
-    return { pad, liters, required_date: b.required_date, observations };
+    // Pozo de destino: uno de los pozos del PAD, o el PAD completo. Al editar se admite conservar el pozo anterior.
+    const wells = dbm.splitWells(pad.wells);
+    let well = String(b.well || '').trim();
+    if (well === dbm.WHOLE_PAD || (!wells.length && !well)) well = wells.length ? dbm.WHOLE_PAD : '';
+    else if (!well) throw new HttpError(400, 'Seleccione el pozo al que corresponde el pedido.');
+    else if (!wells.includes(well) && well !== prevWell) throw new HttpError(400, `El pozo ${well} no pertenece al PAD ${pad.code}.`);
+    return { pad, well, liters, required_date: b.required_date, observations };
   }
 
   function resolveRequestDate(b, user, fallbackIso) {
@@ -226,13 +247,13 @@ function createApp({ db, mailer, secureCookies = false }) {
     const s = dbm.getSettings(db);
     const id = dbm.tx(db, () => {
       const number = dbm.nextOrderNumber(db, Number(localDate(requestIso).slice(0, 4)));
-      const r = db.prepare(`INSERT INTO orders (order_number, unit, pad_id, pad_code, pad_wells, pad_area, liters, request_date, required_date,
-          observations, requester_id, requester_name, status, notification_status, idempotency_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-        .run(number, s.unidad_operativa, v.pad.id, v.pad.code, v.pad.wells, v.pad.area, v.liters, requestIso, v.required_date,
+      const r = db.prepare(`INSERT INTO orders (order_number, unit, pad_id, pad_code, pad_wells, pad_area, well, liters, request_date, required_date,
+          observations, requester_id, requester_name, status, notification_status, idempotency_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(number, s.unidad_operativa, v.pad.id, v.pad.code, v.pad.wells, v.pad.area, v.well, v.liters, requestIso, v.required_date,
           v.observations, req.user.id, req.user.full_name, draft ? 'Borrador' : 'Solicitado', 'Pendiente de envío', key);
       const oid = Number(r.lastInsertRowid);
       dbm.audit(db, req.user, draft ? 'creacion_borrador' : 'creacion', 'pedido', oid, {
-        numero: number, pad: v.pad.code, litros: v.liters, fecha_requerida: v.required_date, fecha_solicitud: requestIso,
+        numero: number, pad: v.pad.code, pozo: v.well, litros: v.liters, fecha_requerida: v.required_date, fecha_solicitud: requestIso,
       });
       return oid;
     });
@@ -243,7 +264,7 @@ function createApp({ db, mailer, secureCookies = false }) {
 
   function listFilters(q) {
     const where = []; const args = [];
-    if (q.q) { where.push('(order_number LIKE ? OR pad_code LIKE ?)'); args.push(`%${q.q}%`, `%${q.q}%`); }
+    if (q.q) { where.push('(order_number LIKE ? OR pad_code LIKE ? OR well LIKE ?)'); args.push(`%${q.q}%`, `%${q.q}%`, `%${q.q}%`); }
     if (q.from && isDate(q.from)) { where.push('request_date >= ?'); args.push(localToIso(`${q.from}T00:00`)); }
     if (q.to && isDate(q.to)) { where.push('request_date < ?'); args.push(new Date(Date.parse(localToIso(`${q.to}T00:00`)) + 864e5).toISOString()); }
     if (q.status && ORDER_STATUS.includes(q.status)) { where.push('status = ?'); args.push(q.status); }
@@ -264,8 +285,8 @@ function createApp({ db, mailer, secureCookies = false }) {
   api.get('/orders/export.csv', (req, res) => {
     const { sql, args } = listFilters(req.query);
     const rows = db.prepare(sql).all(...args);
-    const head = ['Número de pedido', 'Fecha de solicitud', 'Fecha requerida de entrega', 'Unidad operativa', 'PAD / Locación', 'Área / Yacimiento',
-      'Pozos', 'Litros solicitados', 'Solicitante', 'Estado del pedido', 'Estado de notificación', 'Observaciones', 'Motivo de cancelación'];
+    const head = ['Número de pedido', 'Fecha de solicitud', 'Fecha requerida de entrega', 'Unidad operativa', 'PAD / Locación', 'Pozo', 'Área / Yacimiento',
+      'Pozos del PAD', 'Litros solicitados', 'Solicitante', 'Estado del pedido', 'Estado de notificación', 'Observaciones', 'Motivo de cancelación'];
     const cell = (v) => {
       let s = String(v ?? '');
       if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`; // evita inyección de fórmulas en Excel
@@ -273,7 +294,7 @@ function createApp({ db, mailer, secureCookies = false }) {
     };
     const lines = [head.map(cell).join(';')];
     for (const o of rows) {
-      lines.push([o.order_number, fmt.dateTime(o.request_date), fmt.date(o.required_date), o.unit, o.pad_code, o.pad_area, o.pad_wells,
+      lines.push([o.order_number, fmt.dateTime(o.request_date), fmt.date(o.required_date), o.unit, o.pad_code, o.well, o.pad_area, o.pad_wells,
         o.liters, o.requester_name, o.status, o.notification_status, o.observations, o.cancel_reason].map(cell).join(';'));
     }
     dbm.audit(db, req.user, 'exportacion_historial', 'pedido', null, { filtros: req.query, registros: rows.length });
@@ -315,9 +336,10 @@ function createApp({ db, mailer, secureCookies = false }) {
     const requestIso = resolveRequestDate(b, req.user, o.request_date);
     // Si el PAD del pedido fue desactivado después, se permite conservarlo al editar.
     const v = Number(b.pad_id) === o.pad_id
-      ? validateOrder(b, req.user, { requestIso, keepPad: true }) : validateOrder(b, req.user, { requestIso });
+      ? validateOrder(b, req.user, { requestIso, keepPad: true, prevWell: o.well }) : validateOrder(b, req.user, { requestIso });
     const changes = {};
     if (v.pad.id !== o.pad_id) changes.pad = [o.pad_code, v.pad.code];
+    if (v.well !== o.well) changes.pozo = [o.well, v.well];
     if (v.liters !== o.liters) changes.litros = [o.liters, v.liters];
     if (v.required_date !== o.required_date) changes.fecha_requerida = [o.required_date, v.required_date];
     if (v.observations !== o.observations) changes.observaciones = [o.observations, v.observations];
@@ -328,9 +350,9 @@ function createApp({ db, mailer, secureCookies = false }) {
     const notif = o.status === 'Borrador' ? o.notification_status
       : (o.notification_status === 'Enviado correctamente' ? 'Pendiente de envío' : o.notification_status);
     dbm.tx(db, () => {
-      db.prepare(`UPDATE orders SET pad_id=?, pad_code=?, pad_wells=?, pad_area=?, liters=?, required_date=?, observations=?, request_date=?,
+      db.prepare(`UPDATE orders SET pad_id=?, pad_code=?, pad_wells=?, pad_area=?, well=?, liters=?, required_date=?, observations=?, request_date=?,
         notification_status=?, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?`)
-        .run(pad.id, pad.code, pad.wells, pad.area, v.liters, v.required_date, v.observations, requestIso, notif, o.id);
+        .run(pad.id, pad.code, pad.wells, pad.area, v.well, v.liters, v.required_date, v.observations, requestIso, notif, o.id);
       dbm.audit(db, req.user, 'modificacion', 'pedido', o.id, changes);
     });
     res.json({ order: getOrder(o.id), changed: true });

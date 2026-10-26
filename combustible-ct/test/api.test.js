@@ -86,10 +86,15 @@ test('flujo completo con SMTP', async (t) => {
   assert.equal((await oper('POST', '/api/orders', { pad_id: pad.id, liters: 1000, required_date: future, request_date: '2026-01-01T10:00' })).status, 403);
 
   // Creación + correo
-  const r1 = await oper('POST', '/api/orders', { pad_id: pad.id, liters: '15.000', required_date: future, observations: 'Prueba', idempotency_key: 'k1' });
+  // Pozo obligatorio y perteneciente al PAD
+  assert.equal((await oper('POST', '/api/orders', { pad_id: pad.id, liters: 1000, required_date: future })).status, 400);
+  assert.equal((await oper('POST', '/api/orders', { pad_id: pad.id, well: 'POZO-AJENO', liters: 1000, required_date: future })).status, 400);
+
+  const r1 = await oper('POST', '/api/orders', { pad_id: pad.id, well: 'POZO-T2', liters: '15.000', required_date: future, observations: 'Prueba', idempotency_key: 'k1' });
   assert.equal(r1.status, 201);
   assert.match(r1.body.order.order_number, /^CT-\d{4}-00001$/);
   assert.equal(r1.body.order.liters, 15000);
+  assert.equal(r1.body.order.well, 'POZO-T2');
   assert.equal(r1.body.email.ok, true);
   assert.equal(r1.body.order.status, 'Enviado a transportista');
   assert.equal(r1.body.order.notification_status, 'Enviado correctamente');
@@ -114,7 +119,7 @@ test('flujo completo con SMTP', async (t) => {
   assert.equal((await admin('POST', `/api/orders/${r1.body.order.id}/status`, { status: 'Cancelado' })).status, 400);
 
   // Borrador -> envío
-  const dr = await oper('POST', '/api/orders', { pad_id: pad.id, liters: 2000, required_date: future, draft: true });
+  const dr = await oper('POST', '/api/orders', { pad_id: pad.id, well: 'PAD completo (varios pozos)', liters: 2000, required_date: future, draft: true });
   assert.equal(dr.body.order.status, 'Borrador');
   assert.equal(sink.messages.length, 1);
   const sub = await oper('POST', `/api/orders/${dr.body.order.id}/submit`);
@@ -127,11 +132,13 @@ test('flujo completo con SMTP', async (t) => {
 
   // Filtros, búsqueda y exportación
   assert.equal((await oper('GET', '/api/orders?q=00002')).body.length, 1);
+  assert.equal((await oper('GET', '/api/orders?q=POZO-T2')).body.length, 1);
   assert.equal((await oper('GET', '/api/orders?status=Entregado')).body.length, 1);
   assert.equal((await oper('GET', '/api/orders?from=2000-01-01&to=2000-01-02')).body.length, 0);
   const csv = await oper('GET', '/api/orders/export.csv');
   assert.ok(csv.body.includes('Número de pedido;Fecha de solicitud'));
-  assert.ok(csv.body.includes('CT-'));
+  assert.ok(csv.body.includes('CT-') && csv.body.includes('POZO-T2'));
+  assert.ok(sink.messages[0].body.includes('POZO-T2'));
 
   // Panel
   const dash = (await oper('GET', '/api/dashboard')).body;
@@ -162,4 +169,36 @@ test('error de envío queda registrado y se reintenta sin duplicar', async (t) =
   assert.equal(det.notifications.length, 2);
   assert.ok(det.events.some((e) => e.action === 'reintento_notificacion'));
   assert.equal((await admin('GET', '/api/orders')).body.length, 1);
+});
+
+test('importación del listado de Well PAD y pozos', async (t) => {
+  const ctx = await setup({});
+  t.after(() => ctx.server.close());
+  const admin = await ctx.login('admin', 'clave-admin-123');
+  const oper = await ctx.login('oper', 'clave-oper-123');
+  const csv = 'Oper.Well Pad;Pozo\nWP-PRUEBA-1;P-1(h)\nWP-PRUEBA-1;P-2(h)\nWP-PRUEBA-1;P-1(h)\n;Falla1\nWP-PRUEBA-2;P-3(h)\n';
+  const up = async (cookieFetch, apply) => {
+    const login = await fetch(`${ctx.base}/api/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cookieFetch) });
+    const j = await login.json(); const cookie = login.headers.get('set-cookie').split(';')[0];
+    const r = await fetch(`${ctx.base}/api/pads/import${apply ? '?aplicar=1' : ''}`, { method: 'POST', headers: { cookie, 'x-csrf-token': j.csrf, 'content-type': 'application/octet-stream', 'x-filename': 'listado.csv' }, body: csv });
+    return { status: r.status, body: await r.json() };
+  };
+  assert.equal((await up({ username: 'oper', password: 'clave-oper-123' }, true)).status, 403);
+  const prev = await up({ username: 'admin', password: 'clave-admin-123' }, false);
+  assert.equal(prev.body.created.length, 2);
+  assert.equal(prev.body.skipped.length, 1);
+  assert.equal((await admin('GET', '/api/pads')).body.length, 0, 'la vista previa no modifica');
+  const done = await up({ username: 'admin', password: 'clave-admin-123' }, true);
+  assert.equal(done.body.applied, true);
+  const pads = (await oper('GET', '/api/pads')).body;
+  assert.deepEqual(pads.map((p) => [p.code, p.wells]), [['WP-PRUEBA-1', 'P-1(h), P-2(h)'], ['WP-PRUEBA-2', 'P-3(h)']]);
+  assert.equal((await up({ username: 'admin', password: 'clave-admin-123' }, false)).body.unchanged, 2);
+});
+
+test('lectura del Excel real de Well PAD', { skip: !require('node:fs').existsSync(`${__dirname}/../datos/WP_por_Pozos.xlsx`) }, async () => {
+  const padImport = require('../server/pad-import');
+  const parsed = await padImport.parse(require('node:fs').readFileSync(`${__dirname}/../datos/WP_por_Pozos.xlsx`), 'WP_por_Pozos.xlsx');
+  assert.ok(parsed.pads.size > 0);
+  assert.deepEqual(parsed.pads.get('LA-WP130'), ['LA-750(h)', 'LA-752(h)']);
+  assert.equal(parsed.conflicts.length, 0);
 });

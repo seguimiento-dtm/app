@@ -21,6 +21,9 @@
   const fDateOnly = (iso) => { if (!iso) return ''; const p = parts(iso); return `${p.day}/${p.month}/${p.year}`; };
   const toLocalInput = (iso) => { const p = parts(iso); return `${p.year}-${p.month}-${p.day}T${p.hour === '24' ? '00' : p.hour}:${p.minute}`; };
   const parseLiters = (s) => { const t = String(s ?? '').trim().replace(/\s|L$/gi, '').replace(/\./g, ''); return t === '' ? NaN : Number(t.replace(',', '.')); };
+  const WHOLE_PAD = 'PAD completo (varios pozos)';
+  const splitWells = (w) => String(w || '').split(/[,;\n]/).map((x) => x.trim()).filter(Boolean);
+  const padWithWell = (o) => (o.well && o.well !== WHOLE_PAD ? `${o.pad_code} · ${o.well}` : o.pad_code);
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   const STATUS_CLASS = { Borrador: 'b-borrador', Solicitado: 'b-solicitado', 'Enviado a transportista': 'b-enviado', Entregado: 'b-entregado', Cancelado: 'b-cancelado' };
@@ -302,10 +305,13 @@
       <form class="card form" id="orderForm" novalidate>
         <div class="field"><label for="f-unit">Unidad operativa</label><input class="input" id="f-unit" value="${esc(order ? order.unit : state.meta.unit)}" readonly></div>
         <div class="field"><label for="f-req">Solicitante</label><input class="input" id="f-req" value="${esc(order ? order.requester_name : state.user.full_name)}" readonly></div>
-        <div class="field full"><label for="f-pad">PAD / Locación <span class="req">*</span></label>
-          <select class="input" id="f-pad" required><option value="">Seleccione el PAD de destino…</option>
-          ${pads.map((p) => `<option value="${p.id}" ${order && order.pad_id === p.id ? 'selected' : ''}>${esc(p.code)}${p.area ? ` — ${esc(p.area)}` : ''}</option>`).join('')}</select>
+        <div class="field"><label for="f-pad">Well PAD / Locación <span class="req">*</span></label>
+          <select class="input" id="f-pad" required><option value="">Seleccione el Well PAD…</option>
+          ${pads.map((p) => { const n = splitWells(p.wells).length; return `<option value="${p.id}" ${order && order.pad_id === p.id ? 'selected' : ''}>${esc(p.code)}${p.area ? ` — ${esc(p.area)}` : ''}${n ? ` (${n} pozo${n > 1 ? 's' : ''})` : ''}</option>`; }).join('')}</select>
           <div class="pad-info hidden" id="padInfo"></div><div class="err-msg" data-err="pad_id"></div></div>
+        <div class="field"><label for="f-well">Pozo <span class="req">*</span></label>
+          <select class="input" id="f-well" required disabled><option value="">Primero seleccione el Well PAD</option></select>
+          <div class="hint">Pozo al que corresponde el combustible. Use “${WHOLE_PAD}” si es para más de un pozo.</div><div class="err-msg" data-err="well"></div></div>
         <div class="field"><label for="f-lit">Cantidad de combustible solicitada <span class="req">*</span></label>
           <div class="input-suffix"><input class="input num" id="f-lit" inputmode="numeric" autocomplete="off" placeholder="Ej.: 15.000" value="${order ? N(order.liters) : ''}" required><span>litros</span></div>
           <div class="err-msg" data-err="liters"></div></div>
@@ -327,30 +333,46 @@
       </form>`;
 
     const form = $('#orderForm');
-    const padSel = $('#f-pad'); const lit = $('#f-lit'); const dt = $('#f-date');
-    const showPad = () => {
+    const padSel = $('#f-pad'); const wellSel = $('#f-well'); const lit = $('#f-lit'); const dt = $('#f-date');
+    const showPad = (keep) => {
       const p = pads.find((x) => String(x.id) === padSel.value);
       const info = $('#padInfo');
-      if (!p) { info.classList.add('hidden'); return; }
-      info.textContent = [p.area && `Área / yacimiento: ${p.area}`, p.wells && `Pozos: ${p.wells}`].filter(Boolean).join(' · ') || 'Sin datos adicionales del PAD.';
+      const prev = keep || wellSel.value;
+      if (!p) {
+        info.classList.add('hidden');
+        wellSel.innerHTML = '<option value="">Primero seleccione el Well PAD</option>'; wellSel.disabled = true;
+        return;
+      }
+      const wells = splitWells(p.wells);
+      if (order && order.pad_id === p.id && order.well && order.well !== WHOLE_PAD && !wells.includes(order.well)) wells.unshift(order.well);
+      wellSel.disabled = false;
+      wellSel.innerHTML = wells.length
+        ? `<option value="">Seleccione el pozo…</option>${wells.map((w) => `<option>${esc(w)}</option>`).join('')}<option>${WHOLE_PAD}</option>`
+        : `<option>${WHOLE_PAD}</option>`;
+      if (prev && [...wellSel.options].some((o) => o.value === prev)) wellSel.value = prev;
+      else if (wells.length === 1) wellSel.value = wells[0];
+      info.textContent = [p.area && `Área / yacimiento: ${p.area}`, wells.length ? `${wells.length} pozo(s) asociados` : 'PAD sin pozos cargados'].filter(Boolean).join(' · ');
       info.classList.remove('hidden');
     };
     const showDate = () => { $('#dateHint').textContent = dt.value ? `Entrega requerida: ${fDate(dt.value)}` : 'Formato DD/MM/AAAA'; };
-    padSel.addEventListener('change', () => { showPad(); clearErr('pad_id'); });
+    padSel.addEventListener('change', () => { wellSel.value = ''; showPad(); clearErr('pad_id'); clearErr('well'); });
+    wellSel.addEventListener('change', () => clearErr('well'));
     dt.addEventListener('change', () => { showDate(); clearErr('required_date'); });
     lit.addEventListener('blur', () => { const v = parseLiters(lit.value); if (Number.isFinite(v) && v > 0 && Number.isInteger(v)) lit.value = N(v); });
     lit.addEventListener('input', () => clearErr('liters'));
-    showPad(); showDate();
+    showPad(order ? order.well : ''); showDate();
 
-    function clearErr(k) { const e = $(`[data-err="${k}"]`, form); if (e) e.textContent = ''; const inp = { pad_id: padSel, liters: lit, required_date: dt }[k]; if (inp) inp.classList.remove('bad'); }
-    function setErr(k, msg) { const e = $(`[data-err="${k}"]`, form); if (e) e.textContent = msg; const inp = { pad_id: padSel, liters: lit, required_date: dt }[k]; if (inp) inp.classList.add('bad'); }
+    function clearErr(k) { const e = $(`[data-err="${k}"]`, form); if (e) e.textContent = ''; const inp = { pad_id: padSel, well: wellSel, liters: lit, required_date: dt }[k]; if (inp) inp.classList.remove('bad'); }
+    function setErr(k, msg) { const e = $(`[data-err="${k}"]`, form); if (e) e.textContent = msg; const inp = { pad_id: padSel, well: wellSel, liters: lit, required_date: dt }[k]; if (inp) inp.classList.add('bad'); }
 
     function collect() {
       ['pad_id', 'liters', 'required_date'].forEach(clearErr);
-      const data = { pad_id: Number(padSel.value) || null, liters: parseLiters(lit.value), required_date: dt.value, observations: $('#f-obs').value.trim() };
+      clearErr('well');
+      const data = { pad_id: Number(padSel.value) || null, well: wellSel.value, liters: parseLiters(lit.value), required_date: dt.value, observations: $('#f-obs').value.trim() };
       if (admin && $('#f-rdate').value) data.request_date = $('#f-rdate').value;
       let ok = true;
-      if (!data.pad_id) { setErr('pad_id', 'Seleccione el PAD / locación de destino.'); ok = false; }
+      if (!data.pad_id) { setErr('pad_id', 'Seleccione el Well PAD de destino.'); ok = false; }
+      else if (!data.well) { setErr('well', 'Seleccione el pozo al que corresponde el pedido.'); ok = false; }
       if (!Number.isFinite(data.liters)) { setErr('liters', 'Ingrese la cantidad en litros.'); ok = false; }
       else if (data.liters <= 0) { setErr('liters', 'La cantidad debe ser mayor que cero.'); ok = false; }
       else if (!Number.isInteger(data.liters)) { setErr('liters', 'Ingrese litros enteros, sin decimales.'); ok = false; }
@@ -386,7 +408,7 @@
       const m = modal({
         title: 'Confirmar pedido de combustible',
         body: `<p>Verifique los datos antes de enviar. Se registrará el pedido y se notificará por correo a <b>${esc(state.meta.mail.to)}</b>.</p>
-          <div class="confirm-sum"><div><div class="l">PAD / Locación</div><div class="v">${esc(pad ? pad.code : '')}</div></div>
+          <div class="confirm-sum"><div><div class="l">Well PAD / Pozo</div><div class="v">${esc(pad ? pad.code : '')}</div><div class="muted">${esc(data.well)}</div></div>
           <div><div class="l">Litros solicitados</div><div class="v num">${L(data.liters)}</div></div>
           <div><div class="l">Fecha requerida</div><div class="v">${fDate(data.required_date)}</div></div></div>
           ${data.observations ? `<p class="muted"><b>Observaciones:</b> ${esc(data.observations)}</p>` : ''}`,
@@ -423,7 +445,7 @@
       const o = r.order;
       const box = $('#result');
       const okMail = r.email && r.email.ok;
-      box.innerHTML = `<div class="alert ok">${icon('ok')}<p><b>Pedido ${esc(o.order_number)} registrado.</b> ${esc(o.pad_code)} · ${L(o.liters)} · entrega requerida ${fDate(o.required_date)}.</p></div>
+      box.innerHTML = `<div class="alert ok">${icon('ok')}<p><b>Pedido ${esc(o.order_number)} registrado.</b> ${esc(padWithWell(o))} · ${L(o.liters)} · entrega requerida ${fDate(o.required_date)}.</p></div>
         ${okMail
           ? `<div class="alert ok">${icon('mail')}<p><b>Correo enviado correctamente</b> a ${esc(state.meta.mail.to)}. Estado del pedido: ${esc(o.status)}.</p></div>`
           : `<div class="alert err">${icon('warn')}<div><p><b>El correo no pudo enviarse.</b> El pedido quedó guardado con estado “Pendiente de notificación”.</p>
@@ -452,7 +474,7 @@
       <div class="page-h"><h1>Historial de Pedidos</h1><p class="sub">Todos los pedidos registrados, incluidos los cancelados.</p></div>
       <div class="card">
         <form class="filters" id="filters" autocomplete="off">
-          <div class="field"><label for="h-q">Buscar por N.º de pedido o PAD</label><input class="input" id="h-q" type="search" placeholder="Ej.: CT-2026-00012 o nombre del PAD" value="${esc(h.q || '')}"></div>
+          <div class="field"><label for="h-q">Buscar por N.º de pedido, PAD o pozo</label><input class="input" id="h-q" type="search" placeholder="Ej.: CT-2026-00012, LA-WP130 o LA-750(h)" value="${esc(h.q || '')}"></div>
           <div class="field"><label for="h-from">Solicitud desde</label><input class="input" id="h-from" type="date" value="${esc(h.from || '')}"></div>
           <div class="field"><label for="h-to">Solicitud hasta</label><input class="input" id="h-to" type="date" value="${esc(h.to || '')}"></div>
           <div class="field"><label for="h-status">Estado del pedido</label><select class="input" id="h-status"><option value="">Todos</option>
@@ -493,7 +515,7 @@
       $('#h-count').textContent = `${N(rows.length)} pedido(s) · ${L(total)} activos`;
       $('#h-table tbody').innerHTML = rows.length ? rows.map((o) => `<tr class="click ${o.status === 'Cancelado' ? 'off' : ''}" data-id="${o.id}" tabindex="0">
           <td class="mono">${esc(o.order_number)}</td><td>${fDateTime(o.request_date)}</td><td>${fDate(o.required_date)}</td>
-          <td>${esc(o.pad_code)}${o.pad_area ? `<br><span class="muted">${esc(o.pad_area)}</span>` : ''}</td><td class="r num">${L(o.liters)}</td>
+          <td>${esc(o.pad_code)}${o.well ? `<br><span class="muted">${esc(o.well)}</span>` : ''}</td><td class="r num">${L(o.liters)}</td>
           <td>${esc(o.requester_name)}</td><td>${statusBadge(o.status)}</td><td>${notifBadge(o)}</td></tr>`).join('')
         : '<tr><td colspan="8" class="empty">No se encontraron pedidos con los filtros aplicados.</td></tr>';
     }
@@ -533,7 +555,7 @@
       const fmtv = (k, v) => (k === 'litros' ? L(v) : k === 'fecha_requerida' ? fDate(v) : k === 'fecha_solicitud' ? fDateTime(v) : v || '—');
       return Object.entries(d).map(([k, [a, b]]) => `${esc(k.replace('_', ' '))}: ${esc(fmtv(k, a))} → ${esc(fmtv(k, b))}`).join(' · ');
     }
-    if (ev.action.startsWith('creacion')) return `${esc(d.pad)} · ${L(d.litros)} · entrega ${fDate(d.fecha_requerida)}`;
+    if (ev.action.startsWith('creacion')) return `${esc(d.pad)}${d.pozo ? ` · ${esc(d.pozo)}` : ''} · ${L(d.litros)} · entrega ${fDate(d.fecha_requerida)}`;
     return '';
   }
 
@@ -549,7 +571,8 @@
         <dt>Número de pedido</dt><dd class="mono">${esc(o.order_number)}</dd>
         <dt>Unidad operativa</dt><dd>${esc(o.unit)}</dd>
         <dt>PAD / Locación</dt><dd><b>${esc(o.pad_code)}</b>${o.pad_area ? ` — ${esc(o.pad_area)}` : ''}</dd>
-        <dt>Pozos asociados</dt><dd>${esc(o.pad_wells || '—')}</dd>
+        <dt>Pozo</dt><dd><b>${esc(o.well || '—')}</b></dd>
+        <dt>Pozos del PAD</dt><dd class="muted">${esc(o.pad_wells || '—')}</dd>
         <dt>Cantidad solicitada</dt><dd class="num"><b>${L(o.liters)}</b></dd>
         <dt>Fecha y hora de solicitud</dt><dd>${fDateTime(o.request_date)}</dd>
         <dt>Fecha requerida de entrega</dt><dd><b>${fDate(o.required_date)}</b></dd>
@@ -615,15 +638,21 @@
   async function renderPads(view) {
     const pads = await api('GET', '/api/pads?all=1');
     view.innerHTML = `
-      <div class="page-h"><h1>Administración de PAD</h1><button class="btn primary" id="padNew">${icon('plus')} Nuevo PAD</button>
+      <div class="page-h"><h1>Administración de PAD</h1>
+        <button class="btn" id="padImport">${icon('download')} Importar listado Excel</button><input type="file" id="padFile" class="hidden" accept=".xlsx,.csv">
+        <button class="btn primary" id="padNew">${icon('plus')} Nuevo PAD</button>
         <p class="sub">Solo los PAD activos aparecen en el formulario de nuevos pedidos. Los pedidos históricos conservan el nombre del PAD al momento de la solicitud.</p></div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>PAD / Código</th><th>Área / Yacimiento</th><th>Pozos asociados</th><th class="r">Pedidos</th><th>Estado</th><th></th></tr></thead><tbody>
-      ${pads.length ? pads.map((p) => `<tr class="${p.active ? '' : 'off'}"><td><b>${esc(p.code)}</b></td><td>${esc(p.area || '—')}</td><td>${esc(p.wells || '—')}</td><td class="r num">${N(p.orders_count)}</td>
+      <input class="input pad-search" id="padSearch" type="search" placeholder="Buscar Well PAD o pozo…" aria-label="Buscar Well PAD o pozo">
+      <div class="tbl-wrap"><table class="tbl" id="padTbl"><thead><tr><th>PAD / Código</th><th>Área / Yacimiento</th><th>Pozos asociados</th><th class="r">Pedidos</th><th>Estado</th><th></th></tr></thead><tbody>
+      ${pads.length ? pads.map((p) => `<tr class="${p.active ? '' : 'off'}" data-s="${esc(`${p.code} ${p.wells} ${p.area}`.toLowerCase())}"><td><b>${esc(p.code)}</b></td><td>${esc(p.area || '—')}</td><td>${wellsCell(p.wells)}</td><td class="r num">${N(p.orders_count)}</td>
         <td>${p.active ? '<span class="badge b-entregado">Activo</span>' : '<span class="badge b-borrador">Inactivo</span>'}</td>
         <td class="r"><div class="actions"><button class="btn sm" data-edit="${p.id}">Modificar</button><button class="btn sm ${p.active ? 'warn' : 'ok'}" data-toggle="${p.id}">${p.active ? 'Desactivar' : 'Activar'}</button></div></td></tr>`).join('')
         : '<tr><td colspan="6" class="empty">No hay PAD cargados. Use “Nuevo PAD” para cargar los PAD reales de la operación.</td></tr>'}
       </tbody></table></div>`;
     $('#padNew').addEventListener('click', () => padForm(null, () => renderPads(view)));
+    $('#padSearch').addEventListener('input', (e) => { const q = e.target.value.trim().toLowerCase(); $$('#padTbl tbody tr[data-s]').forEach((tr) => tr.classList.toggle('hidden', !!q && !tr.dataset.s.includes(q))); });
+    $('#padImport').addEventListener('click', () => $('#padFile').click());
+    $('#padFile').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importPads(f, () => renderPads(view)); });
     $$('[data-edit]', view).forEach((b) => b.addEventListener('click', () => padForm(pads.find((p) => p.id === Number(b.dataset.edit)), () => renderPads(view))));
     $$('[data-toggle]', view).forEach((b) => b.addEventListener('click', async () => {
       const p = pads.find((x) => x.id === Number(b.dataset.toggle));
@@ -632,13 +661,56 @@
     }));
   }
 
+  function wellsCell(w) {
+    const list = splitWells(w);
+    if (!list.length) return '—';
+    const shown = list.slice(0, 4).join(', ');
+    return `<span title="${esc(list.join(', '))}">${esc(shown)}${list.length > 4 ? ` <span class="muted">y ${list.length - 4} más</span>` : ''}</span>`;
+  }
+
+  async function uploadPads(file, apply) {
+    const r = await fetch(`/api/pads/import${apply ? '?aplicar=1' : ''}`, {
+      method: 'POST', credentials: 'same-origin', body: file,
+      headers: { 'x-csrf-token': state.csrf, 'content-type': 'application/octet-stream', 'x-filename': encodeURIComponent(file.name) },
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
+    return j;
+  }
+
+  async function importPads(file, done) {
+    let s;
+    try { s = await uploadPads(file, false); } catch (e) { toast(e.message, 'err'); return; }
+    const list = (arr) => (arr.length ? `<span class="muted">${esc(arr.slice(0, 12).join(', '))}${arr.length > 12 ? ` y ${arr.length - 12} más` : ''}</span>` : '');
+    const skippedVals = [...new Set(s.skipped.map((x) => x.value))];
+    const m = modal({
+      title: 'Importar listado de Well PAD',
+      body: `<p>Archivo <b>${esc(file.name)}</b>: ${N(s.rows)} filas, <b>${N(s.pads)} Well PAD</b> y <b>${N(s.wells)} pozos</b> distintos.</p>
+        <dl class="kv">
+          <dt>PAD nuevos</dt><dd><b>${N(s.created.length)}</b> ${list(s.created)}</dd>
+          <dt>PAD con pozos actualizados</dt><dd><b>${N(s.updated.length)}</b> ${list(s.updated)}</dd>
+          <dt>PAD sin cambios</dt><dd>${N(s.unchanged)}</dd>
+          ${s.reactivated.length ? `<dt>PAD que se reactivan</dt><dd>${N(s.reactivated.length)} ${list(s.reactivated)}</dd>` : ''}
+          <dt>PAD activos que no figuran</dt><dd>${N(s.notInFile)} <span class="muted">(no se modifican; desactívelos manualmente si corresponde)</span></dd>
+          <dt>Filas omitidas</dt><dd>${N(s.skipped.length)}${skippedVals.length ? ` <span class="muted">sin Well PAD: ${esc(skippedVals.join(', '))}</span>` : ''}</dd>
+          ${s.conflicts.length ? `<dt>Pozos en más de un PAD</dt><dd>${s.conflicts.map((c) => esc(`${c.well} (${c.pads.join(' / ')})`)).join(', ')} <span class="muted">se asigna al primero</span></dd>` : ''}
+        </dl>
+        <p class="muted">La lista de pozos de cada PAD del archivo reemplaza a la actual. Los pedidos ya registrados conservan sus datos.</p>`,
+      foot: '<button class="btn" data-close>Cancelar</button><button class="btn primary" id="imp-ok">Confirmar importación</button>',
+    });
+    $('#imp-ok', m.el).addEventListener('click', async (e) => {
+      busy(e.currentTarget, true, 'Importando…');
+      try { const r = await uploadPads(file, true); m.close(); toast(`Importación completa: ${r.created.length} PAD nuevos, ${r.updated.length} actualizados.`, 'ok'); done(); } catch (err) { busy(e.currentTarget, false); toast(err.message, 'err'); }
+    });
+  }
+
   function padForm(p, done) {
     const m = modal({
       title: p ? `Modificar PAD ${esc(p.code)}` : 'Nuevo PAD',
       body: `<form class="form" id="padF" novalidate>
         <div class="field full"><label for="p-code">Nombre o código del PAD <span class="req">*</span></label><input class="input" id="p-code" maxlength="80" value="${esc(p ? p.code : '')}" autofocus></div>
         <div class="field full"><label for="p-area">Área / Yacimiento</label><input class="input" id="p-area" maxlength="120" value="${esc(p ? p.area : '')}"></div>
-        <div class="field full"><label for="p-wells">Pozos asociados</label><textarea class="input" id="p-wells" maxlength="500" placeholder="Identificación de los pozos, separados por coma">${esc(p ? p.wells : '')}</textarea></div>
+        <div class="field full"><label for="p-wells">Pozos asociados</label><textarea class="input" id="p-wells" maxlength="10000" placeholder="Identificación de los pozos, separados por coma">${esc(p ? p.wells : '')}</textarea></div>
         <div class="field full"><label><input type="checkbox" id="p-active" ${!p || p.active ? 'checked' : ''}> Activo (disponible para nuevos pedidos)</label></div>
         ${p && p.orders_count ? `<div class="field full"><div class="hint">Este PAD tiene ${N(p.orders_count)} pedido(s). Los cambios no alteran los datos registrados en esos pedidos.</div></div>` : ''}
         </form>`,
