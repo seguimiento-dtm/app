@@ -9,6 +9,7 @@ const padImport = require('./pad-import');
 
 const { ORDER_STATUS, NOTIF_STATUS } = dbm;
 const MAX_LITERS = 1000000;
+const EMAIL_RE = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/;
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -37,7 +38,8 @@ function localDate(iso) {
   return `${p.year}-${p.month}-${p.day}`;
 }
 
-function createApp({ db, mailer, secureCookies = false }) {
+function createApp({ db, mailer, secureCookies = false, appUrl = '' }) {
+  const baseUrl = String(appUrl || '').replace(/\/+$/, '');
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 'loopback');
@@ -62,15 +64,110 @@ function createApp({ db, mailer, secureCookies = false }) {
     const f = failures.get(key);
     if (f && f.count >= 5 && Date.now() - f.at < 15 * 60e3) throw new HttpError(429, 'Demasiados intentos fallidos. Espere 15 minutos.');
     const u = db.prepare('SELECT * FROM users WHERE username = ?').get(String(username || ''));
-    if (!u || !u.active || !auth.verifyPassword(String(password || ''), u.password_hash)) {
+    if (!u || !auth.verifyPassword(String(password || ''), u.password_hash)) {
       failures.set(key, { count: (f && Date.now() - f.at < 15 * 60e3 ? f.count : 0) + 1, at: Date.now() });
       throw new HttpError(401, 'Usuario o contraseña incorrectos.');
     }
     failures.delete(key);
+    if (u.approval_status === 'pendiente') throw new HttpError(403, 'Su solicitud de usuario está pendiente de aprobación por un administrador.');
+    if (u.approval_status === 'rechazado') throw new HttpError(403, `Su solicitud de usuario fue rechazada${u.reject_reason ? `: ${u.reject_reason}` : ''}. Consulte con un administrador.`);
+    if (!u.active) throw new HttpError(403, 'Su usuario está desactivado. Consulte con un administrador.');
     const s = auth.createSession(db, u.id);
     res.set('Set-Cookie', auth.cookieHeader(s.token, secureCookies, auth.SESSION_HOURS * 3600));
     dbm.audit(db, u, 'inicio_sesion', 'usuario', u.id);
     res.json({ user: publicUser(u), csrf: s.csrf });
+  }));
+
+  // Límite simple por IP para los formularios públicos (alta y olvido de contraseña).
+  const publicHits = new Map();
+  function publicLimit(req, kind, max = 5) {
+    const k = `${kind}|${req.ip}`; const now = Date.now();
+    const h = (publicHits.get(k) || []).filter((t) => now - t < 60 * 60e3);
+    if (h.length >= max) throw new HttpError(429, 'Demasiadas solicitudes desde este equipo. Intente nuevamente en una hora.');
+    h.push(now); publicHits.set(k, h);
+  }
+
+  const adminEmails = () => db.prepare("SELECT email FROM users WHERE role = 'administrador' AND active = 1 AND email <> ''").all().map((r) => r.email);
+  // Avisos por correo (no bloquean la operación si fallan; el resultado queda en auditoría).
+  async function sendNotice(to, subject, lines, auditInfo) {
+    const list = to.filter((a) => EMAIL_RE.test(a));
+    if (!list.length) return false;
+    const text = lines.join('\n');
+    const html = `<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#14212E;line-height:1.5">${lines.map((l) => (l ? `<p style="margin:0 0 8px">${mail.escapeHtml(l)}</p>` : '')).join('')}</div>`;
+    try {
+      await mailer.send({ to: list, subject, text, html });
+      dbm.audit(db, null, 'aviso_correo', auditInfo.entity, auditInfo.id, { asunto: subject, destinatarios: list, resultado: 'enviado' });
+      return true;
+    } catch (e) {
+      dbm.audit(db, null, 'aviso_correo', auditInfo.entity, auditInfo.id, { asunto: subject, destinatarios: list, resultado: 'error', error: String(e.message) });
+      return false;
+    }
+  }
+
+  api.post('/register', wrap(async (req, res) => {
+    publicLimit(req, 'register');
+    const b = req.body || {};
+    const u = userInput({ username: b.username, full_name: b.full_name, email: b.email, password: b.password, role: 'operador' }, true);
+    if (!u.email || !EMAIL_RE.test(u.email)) throw new HttpError(400, 'Ingrese un correo electrónico válido.');
+    if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(u.username)) throw new HttpError(409, 'Ese nombre de usuario ya existe. Elija otro.');
+    if (db.prepare("SELECT 1 FROM users WHERE email = ? COLLATE NOCASE AND approval_status <> 'rechazado'").get(u.email)) {
+      throw new HttpError(409, 'Ya existe un usuario o una solicitud con ese correo. Use “Olvidé la contraseña” o consulte con un administrador.');
+    }
+    const r = db.prepare("INSERT INTO users (username, full_name, email, role, password_hash, active, approval_status) VALUES (?,?,?,'operador',?,0,'pendiente')")
+      .run(u.username, u.full_name, u.email, u.password_hash);
+    const id = Number(r.lastInsertRowid);
+    dbm.audit(db, { id, full_name: u.full_name }, 'solicitud_usuario', 'usuario', id, { username: u.username, email: u.email });
+    await sendNotice(adminEmails(), `[Combustible CT] Nueva solicitud de usuario: ${u.full_name}`, [
+      `${u.full_name} (${u.username}, ${u.email}) solicitó acceso a la aplicación de Pedidos de Combustible CT.`,
+      'Para aprobarla o rechazarla ingrese a Administración → Usuarios.',
+      baseUrl ? `${baseUrl}/#/usuarios` : '',
+    ], { entity: 'usuario', id });
+    res.status(201).json({ ok: true });
+  }));
+
+  api.post('/forgot', wrap(async (req, res) => {
+    publicLimit(req, 'forgot');
+    const q = String((req.body || {}).user || '').trim();
+    const generic = { ok: true, message: 'Si los datos corresponden a un usuario activo, enviamos un enlace al correo registrado y avisamos a los administradores.' };
+    if (!q) throw new HttpError(400, 'Ingrese su usuario o correo electrónico.');
+    const u = db.prepare("SELECT * FROM users WHERE (username = ? OR email = ? COLLATE NOCASE) AND active = 1 AND approval_status = 'aprobado'").get(q, q);
+    if (!u) return res.json(generic);
+    db.prepare("UPDATE users SET reset_requested_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(u.id);
+    dbm.audit(db, u, 'solicitud_restablecer_contraseña', 'usuario', u.id);
+    if (u.email && baseUrl) {
+      const token = require('node:crypto').randomBytes(32).toString('base64url');
+      db.prepare('DELETE FROM password_resets WHERE user_id = ?').run(u.id);
+      db.prepare('INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (?,?,?)').run(auth.sha256(token), u.id, new Date(Date.now() + 3600e3).toISOString());
+      await sendNotice([u.email], '[Combustible CT] Restablecer contraseña', [
+        `Hola ${u.full_name}:`,
+        'Recibimos un pedido para restablecer la contraseña de su usuario en Pedidos de Combustible CT.',
+        `Para elegir una nueva contraseña ingrese al siguiente enlace (válido por 1 hora): ${baseUrl}/restablecer?token=${token}`,
+        'Si usted no lo solicitó, ignore este mensaje.',
+      ], { entity: 'usuario', id: u.id });
+    }
+    await sendNotice(adminEmails(), `[Combustible CT] ${u.full_name} pidió restablecer su contraseña`, [
+      `${u.full_name} (${u.username}) usó “Olvidé la contraseña”.`,
+      u.email && baseUrl ? 'Se le envió un enlace a su correo. Si no lo recibe, puede asignarle una contraseña nueva desde Administración → Usuarios.'
+        : 'El usuario no tiene correo registrado o la aplicación no tiene APP_URL configurada: asígnele una contraseña nueva desde Administración → Usuarios.',
+    ], { entity: 'usuario', id: u.id });
+    res.json(generic);
+  }));
+
+  api.post('/reset', wrap((req, res) => {
+    publicLimit(req, 'reset', 10);
+    const { token, password } = req.body || {};
+    const row = db.prepare('SELECT * FROM password_resets WHERE token_hash = ?').get(auth.sha256(String(token || '')));
+    if (!row || row.used_at || row.expires_at < new Date().toISOString()) throw new HttpError(400, 'El enlace no es válido o venció. Vuelva a usar “Olvidé la contraseña”.');
+    const err = auth.validatePassword(password);
+    if (err) throw new HttpError(400, err);
+    dbm.tx(db, () => {
+      db.prepare("UPDATE users SET password_hash = ?, reset_requested_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(auth.hashPassword(password), row.user_id);
+      db.prepare("UPDATE password_resets SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE token_hash = ?").run(row.token_hash);
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.user_id);
+      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id);
+      dbm.audit(db, u, 'restablecer_contraseña', 'usuario', u.id, { via: 'enlace por correo' });
+    });
+    res.json({ ok: true });
   }));
 
   api.get('/me', (req, res) => {
@@ -108,6 +205,8 @@ function createApp({ db, mailer, secureCookies = false }) {
       today: fmt.today(),
       tz: fmt.TZ,
       mail: { ...mailer.status(), to: s.mail_to, cc: s.mail_cc },
+      pendingUsers: req.user.role === 'administrador'
+        ? db.prepare("SELECT COUNT(*) AS n FROM users WHERE approval_status = 'pendiente' OR reset_requested_at IS NOT NULL").get().n : 0,
     });
   });
 
@@ -454,12 +553,45 @@ function createApp({ db, mailer, secureCookies = false }) {
 
   // ---------- Usuarios (administración) ----------
   function publicUser(u) {
-    return { id: u.id, username: u.username, full_name: u.full_name, email: u.email, role: u.role, active: !!u.active, created_at: u.created_at };
+    return {
+      id: u.id, username: u.username, full_name: u.full_name, email: u.email, role: u.role, active: !!u.active, created_at: u.created_at,
+      approval_status: u.approval_status, approved_by: u.approved_by, approved_at: u.approved_at, reject_reason: u.reject_reason, reset_requested_at: u.reset_requested_at,
+    };
   }
 
   api.get('/users', auth.requireAdmin, (req, res) => {
-    res.json(db.prepare('SELECT * FROM users ORDER BY full_name').all().map(publicUser));
+    res.json(db.prepare("SELECT * FROM users ORDER BY approval_status = 'pendiente' DESC, full_name").all().map(publicUser));
   });
+
+  api.post('/users/:id/approve', auth.requireAdmin, wrap(async (req, res) => {
+    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.id));
+    if (!u) throw new HttpError(404, 'Usuario inexistente.');
+    if (u.approval_status === 'aprobado') throw new HttpError(400, 'El usuario ya está aprobado.');
+    const role = (req.body || {}).role === 'administrador' ? 'administrador' : 'operador';
+    db.prepare(`UPDATE users SET approval_status = 'aprobado', active = 1, role = ?, approved_by = ?, approved_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+      reject_reason = '', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(role, req.user.full_name, u.id);
+    dbm.audit(db, req.user, 'aprobacion_usuario', 'usuario', u.id, { username: u.username, role });
+    await sendNotice([u.email], '[Combustible CT] Su usuario fue aprobado', [
+      `Hola ${u.full_name}:`,
+      `Su usuario "${u.username}" fue aprobado con perfil ${role === 'administrador' ? 'Administrador' : 'Operador'}. Ya puede ingresar con la contraseña que eligió.`,
+      baseUrl,
+    ], { entity: 'usuario', id: u.id });
+    res.json(publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id)));
+  }));
+
+  api.post('/users/:id/reject', auth.requireAdmin, wrap(async (req, res) => {
+    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.id));
+    if (!u) throw new HttpError(404, 'Usuario inexistente.');
+    if (u.approval_status !== 'pendiente') throw new HttpError(400, 'Solo se pueden rechazar solicitudes pendientes.');
+    const reason = String((req.body || {}).reason || '').trim().slice(0, 300);
+    db.prepare(`UPDATE users SET approval_status = 'rechazado', active = 0, reject_reason = ?, approved_by = ?, approved_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(reason, req.user.full_name, u.id);
+    dbm.audit(db, req.user, 'rechazo_usuario', 'usuario', u.id, { username: u.username, motivo: reason });
+    await sendNotice([u.email], '[Combustible CT] Solicitud de usuario rechazada', [
+      `Hola ${u.full_name}:`, `Su solicitud de usuario "${u.username}" no fue aprobada.${reason ? ` Motivo: ${reason}` : ''}`, 'Ante cualquier duda, consulte con un administrador.',
+    ], { entity: 'usuario', id: u.id });
+    res.json(publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id)));
+  }));
 
   function userInput(b, creating) {
     const out = {};
@@ -502,6 +634,8 @@ function createApp({ db, mailer, secureCookies = false }) {
       throw new HttpError(400, 'No puede desactivar ni quitar el perfil de administrador a su propio usuario.');
     }
     if (u.username && db.prepare('SELECT 1 FROM users WHERE username = ? AND id <> ?').get(u.username, prev.id)) throw new HttpError(409, 'Ese nombre de usuario ya existe.');
+    if (prev.approval_status !== 'aprobado' && u.active === 1) throw new HttpError(400, 'Use “Aprobar” para habilitar una solicitud de usuario.');
+    if (u.password_hash) u.reset_requested_at = null;
     const keys = Object.keys(u);
     if (keys.length) {
       db.prepare(`UPDATE users SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
@@ -514,7 +648,6 @@ function createApp({ db, mailer, secureCookies = false }) {
   }));
 
   // ---------- Configuración ----------
-  const EMAIL_RE = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/;
   api.get('/settings', auth.requireAdmin, (req, res) => {
     res.json({ settings: dbm.getSettings(db), mail: mailer.status() });
   });

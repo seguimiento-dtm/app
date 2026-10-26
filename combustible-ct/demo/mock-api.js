@@ -5,14 +5,15 @@
 (() => {
   const PADS = window.__DEMO_PADS__ || [];
   const TZ = 'America/Argentina/Buenos_Aires';
-  const KEY = 'combustible-ct-demo-v2';
+  const KEY = 'combustible-ct-demo-v3';
   const SIM = ' (SIMULADO: la versión de prueba no envía correos)';
   const ORDER_STATUS = ['Borrador', 'Solicitado', 'Enviado a transportista', 'Entregado', 'Cancelado'];
   const NOTIF_STATUS = ['Pendiente de envío', 'Enviado correctamente', 'Error de envío'];
   const WHOLE_PAD = 'PAD completo (varios pozos)';
   const USERS = [
-    { id: 1, username: 'admin', full_name: 'Administrador de prueba', email: '', role: 'administrador', active: true, created_at: new Date().toISOString() },
-    { id: 2, username: 'operador', full_name: 'Operador de prueba', email: '', role: 'operador', active: true, created_at: new Date().toISOString() },
+    { id: 1, username: 'admin', full_name: 'Administrador de prueba', email: '', role: 'administrador', active: true, approval_status: 'aprobado', approved_by: '', created_at: new Date().toISOString(), pw: 'prueba' },
+    { id: 2, username: 'operador', full_name: 'Operador de prueba', email: '', role: 'operador', active: true, approval_status: 'aprobado', approved_by: '', created_at: new Date().toISOString(), pw: 'prueba' },
+    { id: 3, username: 'solicitud.ejemplo', full_name: 'Solicitud de ejemplo (prueba)', email: 'solicitud.ejemplo@example.com', role: 'operador', active: false, approval_status: 'pendiente', approved_by: '', created_at: new Date(Date.now() - 3600e3).toISOString(), pw: 'prueba' },
   ];
   const split = (s) => String(s || '').split(/[,;\n]/).map((w) => w.trim()).filter(Boolean);
   const nf = new Intl.NumberFormat('es-AR');
@@ -168,19 +169,38 @@
   function handle(method, url, body) {
     const u = new URL(url, location.href); const p = u.pathname.replace(/^.*\/api\//, ''); const q = u.searchParams;
     if (p === 'login' && method === 'POST') {
-      const user = db.users.find((x) => x.username === String(body.username || '').toLowerCase() && x.active);
-      if (!user || body.password !== 'prueba') throw new E(401, 'Usuario o contraseña incorrectos. En la versión de prueba use admin u operador, contraseña: prueba.');
-      db.user = user.id; save(); return { user, csrf: 'demo' };
+      const user = db.users.find((x) => x.username === String(body.username || '').toLowerCase());
+      if (!user || body.password !== user.pw) throw new E(401, 'Usuario o contraseña incorrectos. En la versión de prueba use admin u operador, contraseña: prueba.');
+      if (user.approval_status === 'pendiente') throw new E(403, 'Su solicitud de usuario está pendiente de aprobación por un administrador.');
+      if (user.approval_status === 'rechazado') throw new E(403, `Su solicitud de usuario fue rechazada${user.reject_reason ? `: ${user.reject_reason}` : ''}. Consulte con un administrador.`);
+      if (!user.active) throw new E(403, 'Su usuario está desactivado. Consulte con un administrador.');
+      db.user = user.id; save(); const { pw, ...pub } = user; return { user: pub, csrf: 'demo' };
+    }
+    if (p === 'register') {
+      const name = String(body.full_name || '').trim(); const un = String(body.username || '').trim().toLowerCase(); const em = String(body.email || '').trim();
+      if (!name || !/^[a-z0-9._@-]{3,60}$/.test(un)) throw new E(400, 'Complete el nombre y un usuario válido.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) throw new E(400, 'Ingrese un correo electrónico válido.');
+      if (String(body.password || '').length < 10) throw new E(400, 'La contraseña debe tener al menos 10 caracteres.');
+      if (db.users.some((x) => x.username === un)) throw new E(409, 'Ese nombre de usuario ya existe. Elija otro.');
+      const nu = { id: Math.max(...db.users.map((x) => x.id)) + 1, username: un, full_name: name, email: em, role: 'operador', active: false, approval_status: 'pendiente', approved_by: '', created_at: new Date().toISOString(), pw: body.password };
+      db.users.push(nu); audit({ id: nu.id, full_name: name }, 'solicitud_usuario', nu.id, { username: un, email: em }, null, 'usuario');
+      return { ok: true };
+    }
+    if (p === 'forgot') {
+      const v = String(body.user || '').trim().toLowerCase();
+      const fu = db.users.find((x) => (x.username === v || String(x.email).toLowerCase() === v) && x.active);
+      if (fu) { fu.reset_requested_at = new Date().toISOString(); audit(fu, 'solicitud_restablecer_contraseña', fu.id, {}, null, 'usuario'); }
+      return { ok: true, message: 'Si los datos corresponden a un usuario activo, enviamos un enlace al correo registrado y avisamos a los administradores. (Versión de prueba: no se envía ningún correo.)' };
     }
     const user = me();
-    if (p === 'me') { if (!user) throw new E(401, 'Sesión no iniciada.'); return { user, csrf: 'demo' }; }
+    if (p === 'me') { if (!user) throw new E(401, 'Sesión no iniciada.'); const { pw, ...pub } = user; return { user: pub, csrf: 'demo' }; }
     if (!user) throw new E(401, 'Sesión no iniciada.');
     const admin = isAdmin(user);
     const needAdmin = () => { if (!admin) throw new E(403, 'Acción reservada a administradores.'); };
     let m;
     if (p === 'logout') { db.user = null; return { ok: true }; }
     if (p === 'me/password') throw new E(400, 'En la versión de prueba no se cambian contraseñas.');
-    if (p === 'meta') return { unit: db.settings.unidad_operativa, orderStatus: ORDER_STATUS, notifStatus: NOTIF_STATUS, today: today(), tz: TZ, mail: { provider: 'smtp', configured: true, missing: [], to: db.settings.mail_to + (db.mode === 'ok' ? SIM : ' (versión de prueba: no se envía)'), cc: db.settings.mail_cc } };
+    if (p === 'meta') return { pendingUsers: admin ? db.users.filter((x) => x.approval_status === 'pendiente' || x.reset_requested_at).length : 0, unit: db.settings.unidad_operativa, orderStatus: ORDER_STATUS, notifStatus: NOTIF_STATUS, today: today(), tz: TZ, mail: { provider: 'smtp', configured: true, missing: [], to: db.settings.mail_to + (db.mode === 'ok' ? SIM : ' (versión de prueba: no se envía)'), cc: db.settings.mail_cc } };
     if (p === 'pads' && method === 'GET') {
       const all = q.get('all') === '1' && admin;
       return db.pads.filter((x) => all || x.active).map((x) => ({ ...x, orders_count: db.orders.filter((o) => o.pad_id === x.id).length })).sort((a, b) => a.code.localeCompare(b.code, 'es', { sensitivity: 'base' }));
@@ -262,8 +282,23 @@
         recent: nd.slice().sort((a, b) => (a.request_date < b.request_date ? 1 : -1)).slice(0, 6),
       };
     }
-    if (p === 'users' && method === 'GET') { needAdmin(); return db.users; }
-    if (p.startsWith('users')) { needAdmin(); throw new E(400, 'En la versión de prueba no se crean ni modifican usuarios.'); }
+    if (p === 'users' && method === 'GET') { needAdmin(); return db.users.map(({ pw, ...x }) => x).sort((a, b) => (b.approval_status === 'pendiente') - (a.approval_status === 'pendiente') || a.full_name.localeCompare(b.full_name)); }
+    if ((m = p.match(/^users\/(\d+)\/(approve|reject)$/))) {
+      needAdmin(); const t = db.users.find((x) => x.id === Number(m[1])); if (!t) throw new E(404, 'Usuario inexistente.');
+      if (m[2] === 'approve') Object.assign(t, { approval_status: 'aprobado', active: true, role: body.role === 'administrador' ? 'administrador' : 'operador', approved_by: user.full_name, approved_at: new Date().toISOString(), reject_reason: '' });
+      else Object.assign(t, { approval_status: 'rechazado', active: false, reject_reason: String(body.reason || '').trim(), approved_by: user.full_name, approved_at: new Date().toISOString() });
+      audit(user, m[2] === 'approve' ? 'aprobacion_usuario' : 'rechazo_usuario', t.id, { username: t.username, role: t.role }, null, 'usuario');
+      const { pw, ...out } = t; return out;
+    }
+    if ((m = p.match(/^users\/(\d+)$/)) && method === 'PUT') {
+      needAdmin(); const t = db.users.find((x) => x.id === Number(m[1])); if (!t) throw new E(404, 'Usuario inexistente.');
+      if (body.password) { if (body.password.length < 10) throw new E(400, 'La contraseña debe tener al menos 10 caracteres.'); t.pw = body.password; t.reset_requested_at = null; }
+      for (const k of ['full_name', 'email', 'role']) if (body[k] !== undefined) t[k] = body[k];
+      if (body.active !== undefined && t.approval_status === 'aprobado' && t.id !== user.id) t.active = !!body.active;
+      audit(user, 'modificacion_usuario', t.id, { username: t.username }, null, 'usuario');
+      const { pw, ...out } = t; return out;
+    }
+    if (p.startsWith('users')) { needAdmin(); throw new E(400, 'En la versión de prueba no se crean usuarios desde Administración; use “Crear usuario nuevo” en la pantalla de ingreso.'); }
     if (p === 'settings' && method === 'GET') { needAdmin(); return { settings: db.settings, mail: { provider: 'smtp', configured: false, missing: ['(versión de prueba: sin servidor de correo)'] } }; }
     if (p === 'settings' && method === 'PUT') { needAdmin(); db.settings.mail_to = String(body.mail_to || '').trim() || db.settings.mail_to; db.settings.mail_cc = String(body.mail_cc || '').trim(); audit(user, 'modificacion_configuracion', null, { mail_to: db.settings.mail_to }, null, 'configuracion'); return { settings: db.settings }; }
     if (p === 'settings/test-mail') { needAdmin(); return { ok: false, error: 'Versión de prueba: no hay servidor de correo. En la app instalada este botón envía un correo real.' }; }

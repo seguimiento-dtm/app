@@ -204,6 +204,13 @@ dl.kv dt:last-of-type,dl.kv dd:last-of-type{border-bottom:0}
 .login p.sub{margin:0 0 20px;color:var(--muted)}
 .login .field{margin-bottom:14px}
 .login .btn{width:100%}
+.auth-links{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;margin-top:16px;font-size:14px}
+.auth-links a{color:var(--navy-3);font-weight:600}
+.auth-h{font-size:18px;margin:0 0 6px;color:var(--navy)}
+.auth-p{margin:0 0 16px;font-size:14px}
+.nav-badge{margin-left:auto;background:#F2A900;color:#1F1600;border-radius:999px;font-size:12px;font-weight:700;padding:1px 8px}
+.pend-card{margin-bottom:16px;border-color:#C3D5EC}
+.sm-input{min-height:32px;padding:4px 8px;width:auto}
 
 /* ---------- responsive ---------- */
 @media (max-width:1100px){

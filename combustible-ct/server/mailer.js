@@ -158,4 +158,4 @@ function createMailer(env = process.env) {
   };
 }
 
-module.exports = { createMailer, buildSubject, buildHtml, buildText, splitAddresses, configStatus };
+module.exports = { escapeHtml: esc, createMailer, buildSubject, buildHtml, buildText, splitAddresses, configStatus };

@@ -58,7 +58,7 @@
     let r;
     try { r = await fetch(url, opt); } catch { throw new Error('No se pudo contactar al servidor. Verifique la conexión.'); }
     const j = await r.json().catch(() => ({}));
-    if (r.status === 401 && url !== '/api/login' && url !== '/api/me') { state.user = null; renderLogin('Su sesión venció. Ingrese nuevamente.'); throw new Error('Sesión vencida.'); }
+    if (r.status === 401 && !['/api/login', '/api/me', '/api/register', '/api/forgot', '/api/reset'].includes(url)) { state.user = null; renderLogin('Su sesión venció. Ingrese nuevamente.'); throw new Error('Sesión vencida.'); }
     if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
     return j;
   }
@@ -94,17 +94,25 @@
   }
 
   // ---------- login ----------
-  function renderLogin(msg) {
-    $('#root').innerHTML = `<div class="login"><form class="card" id="loginForm" novalidate>
+  function authCard(inner) {
+    $('#root').innerHTML = `<div class="login"><div class="card">
       <h1>${icon('drop').replace('<svg', '<svg width="22" height="22"')} Pedidos de Combustible</h1>
-      <p class="sub">Unidad Coiled Tubing · Logística de combustible</p>
-      ${msg ? `<div class="alert warn">${icon('warn')}<p>${esc(msg)}</p></div>` : ''}
-      <div class="field"><label for="lu">Usuario</label><input class="input" id="lu" name="username" autocomplete="username" required autofocus></div>
-      <div class="field"><label for="lp">Contraseña</label><input class="input" id="lp" name="password" type="password" autocomplete="current-password" required></div>
-      <div id="loginErr"></div>
-      <button class="btn primary" type="submit">Ingresar</button>
-    </form></div>`;
-    $('#lu').focus();
+      <p class="sub">Unidad Coiled Tubing · Logística de combustible</p>${inner}</div></div>`;
+    const f = $('.login input'); if (f) f.focus();
+  }
+  const authMsg = (kind, text) => `<div class="alert ${kind}">${icon(kind === 'ok' ? 'ok' : kind === 'info' ? 'info' : 'warn')}<p>${esc(text)}</p></div>`;
+  function bindAuthLinks() { $$('[data-auth]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); ({ login: renderLogin, registro: renderRegister, olvido: renderForgot })[a.dataset.auth](); })); }
+
+  function renderLogin(msg, kind = 'warn') {
+    authCard(`${msg ? authMsg(kind, msg) : ''}
+      <form id="loginForm" novalidate>
+        <div class="field"><label for="lu">Usuario</label><input class="input" id="lu" name="username" autocomplete="username" required></div>
+        <div class="field"><label for="lp">Contraseña</label><input class="input" id="lp" name="password" type="password" autocomplete="current-password" required></div>
+        <div id="loginErr"></div>
+        <button class="btn primary" type="submit">Ingresar</button>
+      </form>
+      <div class="auth-links"><a href="#" data-auth="olvido">Olvidé la contraseña</a><a href="#" data-auth="registro">Crear usuario nuevo</a></div>`);
+    bindAuthLinks();
     $('#loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('button');
@@ -114,9 +122,86 @@
         state.user = r.user; state.csrf = r.csrf;
         await boot();
       } catch (err) {
-        $('#loginErr').innerHTML = `<div class="alert err">${icon('warn')}<p>${esc(err.message)}</p></div>`;
+        $('#loginErr').innerHTML = authMsg('err', err.message);
         busy(btn, false);
       }
+    });
+  }
+
+  function renderRegister() {
+    authCard(`<h2 class="auth-h">Crear usuario nuevo</h2>
+      <p class="muted auth-p">Complete sus datos. Un administrador revisará la solicitud y le avisará por correo cuando el usuario esté habilitado.</p>
+      <form id="regForm" novalidate autocomplete="off">
+        <div class="field"><label for="r-name">Nombre y apellido</label><input class="input" id="r-name" autocomplete="name" required></div>
+        <div class="field"><label for="r-mail">Correo electrónico corporativo</label><input class="input" id="r-mail" type="email" autocomplete="email" required></div>
+        <div class="field"><label for="r-user">Usuario</label><input class="input" id="r-user" autocomplete="username" required><div class="hint">3 a 60 caracteres: letras, números, punto, guion o guion bajo.</div></div>
+        <div class="field"><label for="r-pw">Contraseña</label><input class="input" id="r-pw" type="password" autocomplete="new-password" required><div class="hint">Mínimo 10 caracteres.</div></div>
+        <div class="field"><label for="r-pw2">Repetir contraseña</label><input class="input" id="r-pw2" type="password" autocomplete="new-password" required></div>
+        <div id="regErr"></div>
+        <button class="btn primary" type="submit">Enviar solicitud</button>
+      </form>
+      <div class="auth-links"><a href="#" data-auth="login">Volver al ingreso</a></div>`);
+    bindAuthLinks();
+    $('#r-mail').addEventListener('blur', () => { const u = $('#r-user'); if (!u.value && $('#r-mail').value.includes('@')) u.value = $('#r-mail').value.split('@')[0].toLowerCase(); });
+    $('#regForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = { full_name: $('#r-name').value.trim(), email: $('#r-mail').value.trim(), username: $('#r-user').value.trim(), password: $('#r-pw').value };
+      const fail = (m) => { $('#regErr').innerHTML = authMsg('err', m); };
+      if (!body.full_name || !body.email || !body.username || !body.password) return fail('Complete todos los campos.');
+      if (body.password.length < 10) return fail('La contraseña debe tener al menos 10 caracteres.');
+      if (body.password !== $('#r-pw2').value) return fail('Las contraseñas no coinciden.');
+      const btn = e.target.querySelector('button'); busy(btn, true, 'Enviando…');
+      try {
+        await api('POST', '/api/register', body);
+        renderLogin(`Solicitud enviada. Cuando un administrador apruebe su usuario "${body.username}" podrá ingresar con la contraseña que eligió.`, 'ok');
+      } catch (err) { fail(err.message); busy(btn, false); }
+    });
+  }
+
+  function renderForgot() {
+    authCard(`<h2 class="auth-h">Olvidé la contraseña</h2>
+      <p class="muted auth-p">Ingrese su usuario o correo. Le enviaremos un enlace para elegir una contraseña nueva y avisaremos a los administradores.</p>
+      <form id="fgForm" novalidate>
+        <div class="field"><label for="fg-u">Usuario o correo electrónico</label><input class="input" id="fg-u" autocomplete="username" required></div>
+        <div id="fgMsg"></div>
+        <button class="btn primary" type="submit">Enviar</button>
+      </form>
+      <div class="auth-links"><a href="#" data-auth="login">Volver al ingreso</a></div>`);
+    bindAuthLinks();
+    $('#fgForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const v = $('#fg-u').value.trim();
+      if (!v) { $('#fgMsg').innerHTML = authMsg('err', 'Ingrese su usuario o correo electrónico.'); return; }
+      const btn = e.target.querySelector('button'); busy(btn, true, 'Enviando…');
+      try {
+        const r = await api('POST', '/api/forgot', { user: v });
+        renderLogin(`${r.message} Si no recibe el correo, un administrador puede asignarle una contraseña nueva.`, 'info');
+      } catch (err) { $('#fgMsg').innerHTML = authMsg('err', err.message); busy(btn, false); }
+    });
+  }
+
+  function renderReset(token) {
+    authCard(`<h2 class="auth-h">Elegir contraseña nueva</h2>
+      <form id="rsForm" novalidate>
+        <div class="field"><label for="rs-pw">Contraseña nueva</label><input class="input" id="rs-pw" type="password" autocomplete="new-password" required><div class="hint">Mínimo 10 caracteres.</div></div>
+        <div class="field"><label for="rs-pw2">Repetir contraseña</label><input class="input" id="rs-pw2" type="password" autocomplete="new-password" required></div>
+        <div id="rsMsg"></div>
+        <button class="btn primary" type="submit">Guardar contraseña</button>
+      </form>
+      <div class="auth-links"><a href="#" data-auth="login">Volver al ingreso</a></div>`);
+    bindAuthLinks();
+    $('#rsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pw = $('#rs-pw').value;
+      const fail = (m) => { $('#rsMsg').innerHTML = authMsg('err', m); };
+      if (pw.length < 10) return fail('La contraseña debe tener al menos 10 caracteres.');
+      if (pw !== $('#rs-pw2').value) return fail('Las contraseñas no coinciden.');
+      const btn = e.target.querySelector('button'); busy(btn, true, 'Guardando…');
+      try {
+        await api('POST', '/api/reset', { token, password: pw });
+        history.replaceState(null, '', '/');
+        renderLogin('Contraseña actualizada. Ya puede ingresar con la contraseña nueva.', 'ok');
+      } catch (err) { fail(err.message); busy(btn, false); }
     });
   }
 
@@ -134,7 +219,7 @@
 
   function shell() {
     const nav = ROUTES.filter((r) => !r.admin || isAdmin()).map((r) => `${r.group ? `<li class="sep">${r.group}</li>` : ''}
-      <li><a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${r.label}</span></a></li>`).join('');
+      <li><a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${r.label}</span>${r.path === 'usuarios' && state.meta.pendingUsers ? `<span class="nav-badge" title="Solicitudes pendientes">${state.meta.pendingUsers}</span>` : ''}</a></li>`).join('');
     $('#root').innerHTML = `<div class="layout">
       <aside class="side" id="side">
         <div class="brand"><div class="t1">Logística Oil &amp; Gas</div><div class="t2"><span class="drop"></span>Combustible CT</div></div>
@@ -173,6 +258,10 @@
   }
 
   async function boot() {
+    if (location.pathname.replace(/\/+$/, '') === '/restablecer' && !state.user) {
+      const token = new URLSearchParams(location.search).get('token');
+      if (token) return renderReset(token);
+    }
     try {
       if (!state.user) { const me = await api('GET', '/api/me'); state.user = me.user; state.csrf = me.csrf; }
     } catch { return renderLogin(); }
@@ -196,6 +285,7 @@
     view.innerHTML = `
       <div class="page-h"><h1>Panel de pedidos de combustible</h1><p class="sub">Unidad ${esc(state.meta.unit)} · datos actualizados al ${fDateTime(new Date().toISOString())}</p></div>
       ${mailBanner()}
+      ${isAdmin() && state.meta.pendingUsers ? `<div class="alert info">${icon('users')}<p><b>Hay ${state.meta.pendingUsers} solicitud(es) de usuario para revisar.</b> <a href="#/usuarios">Ir a Usuarios</a></p></div>` : ''}
       <div class="shortcuts">
         <a class="shortcut primary" href="#/nuevo">${icon('plus')}<span>Nuevo Pedido<small>Solicitar combustible para un PAD</small></span></a>
         <a class="shortcut" href="#/historial">${icon('list')}<span>Historial de Pedidos<small>Consultar, filtrar y exportar</small></span></a>
@@ -741,15 +831,49 @@
   // =============== USUARIOS ===============
   async function renderUsers(view) {
     const users = await api('GET', '/api/users');
+    const pending = users.filter((u) => u.approval_status === 'pendiente');
+    const resets = users.filter((u) => u.reset_requested_at && u.approval_status === 'aprobado');
+    const others = users.filter((u) => u.approval_status !== 'pendiente');
+    const stateBadge = (u) => (u.approval_status === 'rechazado' ? '<span class="badge b-n-err">Rechazado</span>'
+      : u.active ? '<span class="badge b-entregado">Activo</span>' : '<span class="badge b-borrador">Inactivo</span>');
     view.innerHTML = `
       <div class="page-h"><h1>Usuarios</h1><button class="btn primary" id="uNew">${icon('plus')} Nuevo usuario</button>
         <p class="sub">Operador: genera pedidos y consulta el historial. Administrador: además gestiona PAD, usuarios y configuración.</p></div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nombre</th><th>Usuario</th><th>Correo</th><th>Perfil</th><th>Estado</th><th></th></tr></thead><tbody>
-      ${users.map((u) => `<tr class="${u.active ? '' : 'off'}"><td><b>${esc(u.full_name)}</b></td><td>${esc(u.username)}</td><td>${esc(u.email || '—')}</td>
-        <td>${u.role === 'administrador' ? 'Administrador' : 'Operador'}</td><td>${u.active ? '<span class="badge b-entregado">Activo</span>' : '<span class="badge b-borrador">Inactivo</span>'}</td>
-        <td class="r"><button class="btn sm" data-edit="${u.id}">Modificar</button></td></tr>`).join('')}</tbody></table></div>`;
+      ${pending.length ? `<section class="card pend-card"><h2>Solicitudes pendientes de aprobación (${pending.length})</h2>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nombre</th><th>Usuario</th><th>Correo</th><th>Solicitado</th><th>Perfil a asignar</th><th></th></tr></thead><tbody>
+        ${pending.map((u) => `<tr><td><b>${esc(u.full_name)}</b></td><td>${esc(u.username)}</td><td>${esc(u.email)}</td><td>${fDateTime(u.created_at)}</td>
+          <td><select class="input sm-input" id="role-${u.id}" aria-label="Perfil para ${esc(u.full_name)}"><option value="operador">Operador</option><option value="administrador">Administrador</option></select></td>
+          <td class="r"><div class="actions"><button class="btn sm ok" data-approve="${u.id}">Aprobar</button><button class="btn sm danger" data-reject="${u.id}">Rechazar</button></div></td></tr>`).join('')}
+        </tbody></table></div></section>` : ''}
+      ${resets.length ? `<div class="alert warn">${icon('warn')}<p><b>Pidieron restablecer la contraseña:</b> ${resets.map((u) => `${esc(u.full_name)} (${fDateTime(u.reset_requested_at)})`).join(', ')}.
+        Si no pudieron usar el enlace del correo, use “Modificar” para asignarles una contraseña nueva.</p></div>` : ''}
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nombre</th><th>Usuario</th><th>Correo</th><th>Perfil</th><th>Estado</th><th>Aprobado por</th><th></th></tr></thead><tbody>
+      ${others.map((u) => `<tr class="${u.active ? '' : 'off'}"><td><b>${esc(u.full_name)}</b>${u.reset_requested_at ? ' <span class="badge b-n-pend">Pidió nueva contraseña</span>' : ''}</td><td>${esc(u.username)}</td><td>${esc(u.email || '—')}</td>
+        <td>${u.role === 'administrador' ? 'Administrador' : 'Operador'}</td><td>${stateBadge(u)}</td>
+        <td class="muted">${u.approved_by ? `${esc(u.approved_by)} · ${fDateOnly(u.approved_at)}` : '—'}</td>
+        <td class="r">${u.approval_status === 'rechazado' ? `<button class="btn sm" data-approve="${u.id}">Aprobar</button>` : `<button class="btn sm" data-edit="${u.id}">Modificar</button>`}</td></tr>`).join('')}</tbody></table></div>`;
+    const reload = async () => { state.meta = await api('GET', '/api/meta'); shell(); route(); };
     $('#uNew').addEventListener('click', () => userForm(null, () => renderUsers(view)));
     $$('[data-edit]', view).forEach((b) => b.addEventListener('click', () => userForm(users.find((u) => u.id === Number(b.dataset.edit)), () => renderUsers(view))));
+    $$('[data-approve]', view).forEach((b) => b.addEventListener('click', async () => {
+      const u = users.find((x) => x.id === Number(b.dataset.approve));
+      const sel = $(`#role-${u.id}`, view);
+      busy(b, true);
+      try { await api('POST', `/api/users/${u.id}/approve`, { role: sel ? sel.value : 'operador' }); toast(`Usuario ${u.username} aprobado.`, 'ok'); reload(); } catch (e) { busy(b, false); toast(e.message, 'err'); }
+    }));
+    $$('[data-reject]', view).forEach((b) => b.addEventListener('click', () => {
+      const u = users.find((x) => x.id === Number(b.dataset.reject));
+      const m = modal({
+        title: `Rechazar solicitud de ${esc(u.full_name)}`,
+        body: `<div class="field"><label for="rj-r">Motivo (se informa al solicitante)</label><textarea class="input" id="rj-r" maxlength="300"></textarea></div>`,
+        foot: '<button class="btn" data-close>Volver</button><button class="btn danger" id="rj-ok">Rechazar</button>',
+      });
+      $('#rj-r', m.el).focus();
+      $('#rj-ok', m.el).addEventListener('click', async (e) => {
+        busy(e.currentTarget, true);
+        try { await api('POST', `/api/users/${u.id}/reject`, { reason: $('#rj-r', m.el).value }); m.close(); toast(`Solicitud de ${u.username} rechazada.`, 'ok'); reload(); } catch (err) { busy(e.currentTarget, false); toast(err.message, 'err'); }
+      });
+    }));
   }
 
   function userForm(u, done) {

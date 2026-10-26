@@ -32,11 +32,11 @@ function smtpSink() {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port, messages })));
 }
 
-async function setup(env) {
+async function setup(env, appUrl = '') {
   const db = dbm.open(':memory:');
-  db.prepare("INSERT INTO users (username, full_name, role, password_hash) VALUES ('admin','Admin Prueba','administrador',?)").run(auth.hashPassword('clave-admin-123'));
+  db.prepare("INSERT INTO users (username, full_name, email, role, password_hash) VALUES ('admin','Admin Prueba','admin@example.test','administrador',?)").run(auth.hashPassword('clave-admin-123'));
   db.prepare("INSERT INTO users (username, full_name, role, password_hash) VALUES ('oper','Operador Prueba','operador',?)").run(auth.hashPassword('clave-oper-123'));
-  const app = createApp({ db, mailer: createMailer(env) });
+  const app = createApp({ db, mailer: createMailer(env), appUrl });
   const server = await new Promise((r) => { const s = app.listen(0, '127.0.0.1', () => r(s)); });
   const base = `http://127.0.0.1:${server.address().port}`;
   async function login(username, password) {
@@ -201,4 +201,60 @@ test('lectura del Excel real de Well PAD', { skip: !require('node:fs').existsSyn
   assert.ok(parsed.pads.size > 0);
   assert.deepEqual(parsed.pads.get('LA-WP130'), ['LA-750(h)', 'LA-752(h)']);
   assert.equal(parsed.conflicts.length, 0);
+});
+
+test('alta de usuario con aprobación y restablecimiento de contraseña', async (t) => {
+  const sink = await smtpSink();
+  const env = { MAIL_PROVIDER: 'smtp', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(sink.port), SMTP_SECURE: 'false', SMTP_REQUIRE_TLS: 'false', MAIL_FROM: 'prueba@example.test' };
+  const ctx = await setup(env, 'https://combustible.example.test/');
+  t.after(() => { ctx.server.close(); sink.server.close(); });
+  const post = async (url, body) => {
+    const r = await fetch(ctx.base + url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    return { status: r.status, body: await r.json() };
+  };
+  // Solicitud de alta
+  assert.equal((await post('/api/register', { full_name: 'Nuevo', username: 'nuevo', email: 'mal', password: 'clave-nueva-123' })).status, 400);
+  assert.equal((await post('/api/register', { full_name: 'Nuevo', username: 'nuevo', email: 'nuevo@example.test', password: 'corta' })).status, 400);
+  assert.equal((await post('/api/register', { full_name: 'Nuevo Usuario', username: 'nuevo', email: 'nuevo@example.test', password: 'clave-nueva-123' })).status, 201);
+  assert.equal((await post('/api/register', { full_name: 'Otro', username: 'nuevo', email: 'otro@example.test', password: 'clave-nueva-123' })).status, 409);
+  assert.ok(sink.messages.some((m) => m.rcpt[0].includes('admin@example.test')), 'aviso al administrador');
+  // Pendiente: no ingresa
+  const l1 = await post('/api/login', { username: 'nuevo', password: 'clave-nueva-123' });
+  assert.equal(l1.status, 403);
+  assert.match(l1.body.error, /pendiente de aprobación/);
+  // Admin aprueba
+  const admin = await ctx.login('admin', 'clave-admin-123');
+  assert.equal((await admin('GET', '/api/meta')).body.pendingUsers, 1);
+  const users = (await admin('GET', '/api/users')).body;
+  const nuevo = users.find((u) => u.username === 'nuevo');
+  assert.equal(nuevo.approval_status, 'pendiente');
+  const oper = await ctx.login('oper', 'clave-oper-123');
+  assert.equal((await oper('POST', `/api/users/${nuevo.id}/approve`, { role: 'operador' })).status, 403);
+  assert.equal((await admin('PUT', `/api/users/${nuevo.id}`, { active: true })).status, 400);
+  const ap = await admin('POST', `/api/users/${nuevo.id}/approve`, { role: 'operador' });
+  assert.equal(ap.body.approval_status, 'aprobado');
+  assert.equal(ap.body.approved_by, 'Admin Prueba');
+  assert.ok(sink.messages.some((m) => m.rcpt[0].includes('nuevo@example.test')), 'aviso de aprobación');
+  assert.equal((await post('/api/login', { username: 'nuevo', password: 'clave-nueva-123' })).status, 200);
+
+  // Rechazo
+  await post('/api/register', { full_name: 'Rechazado', username: 'rech', email: 'rech@example.test', password: 'clave-nueva-123' });
+  const rech = (await admin('GET', '/api/users')).body.find((u) => u.username === 'rech');
+  await admin('POST', `/api/users/${rech.id}/reject`, { reason: 'No corresponde' });
+  assert.match((await post('/api/login', { username: 'rech', password: 'clave-nueva-123' })).body.error, /rechazada: No corresponde/);
+
+  // Olvido de contraseña: respuesta genérica, enlace por correo
+  assert.equal((await post('/api/forgot', { user: 'no-existe' })).body.ok, true);
+  const before = sink.messages.length;
+  assert.equal((await post('/api/forgot', { user: 'nuevo@example.test' })).body.ok, true);
+  const mailBody = sink.messages.slice(before).map((m) => m.body.replace(/=\n/g, '').replace(/=([0-9A-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))).join('\n');
+  const token = /restablecer\?token=([A-Za-z0-9_-]+)/.exec(mailBody)[1];
+  assert.ok(mailBody.includes('https://combustible.example.test/restablecer?token='));
+  assert.ok((await admin('GET', '/api/users')).body.find((u) => u.username === 'nuevo').reset_requested_at);
+  assert.equal((await post('/api/reset', { token: 'x', password: 'otra-clave-123' })).status, 400);
+  assert.equal((await post('/api/reset', { token, password: 'otra-clave-123' })).status, 200);
+  assert.equal((await post('/api/reset', { token, password: 'otra-clave-456' })).status, 400, 'el enlace se usa una sola vez');
+  assert.equal((await post('/api/login', { username: 'nuevo', password: 'clave-nueva-123' })).status, 401);
+  assert.equal((await post('/api/login', { username: 'nuevo', password: 'otra-clave-123' })).status, 200);
+  assert.equal((await admin('GET', '/api/users')).body.find((u) => u.username === 'nuevo').reset_requested_at, null);
 });

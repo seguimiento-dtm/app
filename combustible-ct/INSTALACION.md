@@ -28,7 +28,7 @@ Elegir una de las tres formas de instalación siguientes, la que use habitualmen
    copy .env.example .env
    notepad .env
    ```
-   En `.env` completar: `HOST=127.0.0.1`, `COOKIE_SECURE=true` y las variables de correo (`SMTP_*` y `MAIL_FROM`, o `GRAPH_*`).
+   En `.env` completar: `APP_URL=https://<nombre-del-servidor>` (para los enlaces de “Olvidé la contraseña”), `HOST=127.0.0.1`, `COOKIE_SECURE=true` y las variables de correo (`SMTP_*` y `MAIL_FROM`, o `GRAPH_*`).
 4. Crear el administrador y cargar los Well PAD:
    ```powershell
    npm run crear-admin
@@ -60,7 +60,7 @@ sudo useradd --system --home /opt/combustible-ct combustible
 sudo cp -r combustible-ct /opt/combustible-ct
 cd /opt/combustible-ct
 sudo npm ci --omit=dev
-sudo cp .env.example .env && sudo nano .env      # HOST=127.0.0.1, COOKIE_SECURE=true y correo
+sudo cp .env.example .env && sudo nano .env      # APP_URL, HOST=127.0.0.1, COOKIE_SECURE=true y correo
 sudo mkdir -p data && sudo chown -R combustible:combustible data .env
 sudo chmod 600 .env
 
@@ -81,7 +81,7 @@ Ver el registro del servicio: `journalctl -u combustible-ct -f`.
 
 ```bash
 cd combustible-ct
-cp .env.example .env        # completar correo; COOKIE_SECURE=true si hay HTTPS delante
+cp .env.example .env        # completar APP_URL y correo; COOKIE_SECURE=true si hay HTTPS delante
 docker compose build
 docker compose run --rm app npm run crear-admin
 docker compose run --rm app npm run importar-pads -- datos/WP_por_Pozos.xlsx --aplicar
@@ -100,7 +100,7 @@ La base queda en `./data` del host (volumen). Publicar el puerto 3000 detrás de
    - `535 Authentication unsuccessful` / `SmtpClientAuthentication is disabled`: falta habilitar SMTP AUTH en el buzón, o la contraseña es incorrecta.
    - `ETIMEDOUT` / `ECONNREFUSED`: el firewall bloquea la salida al puerto 587.
    - `SendAsDenied`: `MAIL_FROM` no coincide con el buzón autenticado.
-3. **Usuarios**: crear los operadores.
+3. **Usuarios**: cargar el correo del administrador (para recibir los avisos de solicitudes) y crear los operadores, o pedirles que usen “Crear usuario nuevo” y aprobarlos.
 4. Generar un pedido de prueba (indicarlo en Observaciones como “PRUEBA”) y verificar que llegue el correo. Después, cancelarlo con motivo “Prueba de instalación”.
 
 ## 4. Operación

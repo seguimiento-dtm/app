@@ -115,6 +115,21 @@ function migrate(db) {
   // v2: pozo de destino del pedido (copia histórica, igual que el PAD).
   const cols = db.prepare('PRAGMA table_info(orders)').all().map((c) => c.name);
   if (!cols.includes('well')) db.exec("ALTER TABLE orders ADD COLUMN well TEXT NOT NULL DEFAULT ''");
+  // v3: alta de usuarios con aprobación del administrador y restablecimiento de contraseña.
+  const ucols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (!ucols.includes('approval_status')) {
+    db.exec(`ALTER TABLE users ADD COLUMN approval_status TEXT NOT NULL DEFAULT 'aprobado';
+      ALTER TABLE users ADD COLUMN approved_by TEXT NOT NULL DEFAULT '';
+      ALTER TABLE users ADD COLUMN approved_at TEXT;
+      ALTER TABLE users ADD COLUMN reject_reason TEXT NOT NULL DEFAULT '';
+      ALTER TABLE users ADD COLUMN reset_requested_at TEXT;`);
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS password_resets (
+      token_hash TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TEXT NOT NULL,
+      used_at TEXT
+    );`);
   const ins = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) ins.run(k, v);
 }
