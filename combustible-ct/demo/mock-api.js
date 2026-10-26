@@ -5,7 +5,8 @@
 (() => {
   const PADS = window.__DEMO_PADS__ || [];
   const TZ = 'America/Argentina/Buenos_Aires';
-  const KEY = 'combustible-ct-demo-v1';
+  const KEY = 'combustible-ct-demo-v2';
+  const SIM = ' (SIMULADO: la versión de prueba no envía correos)';
   const ORDER_STATUS = ['Borrador', 'Solicitado', 'Enviado a transportista', 'Entregado', 'Cancelado'];
   const NOTIF_STATUS = ['Pendiente de envío', 'Enviado correctamente', 'Error de envío'];
   const WHOLE_PAD = 'PAD completo (varios pozos)';
@@ -23,7 +24,7 @@
   function seed() {
     const now = Date.now();
     const s = {
-      user: null, seq: {}, nid: 1, eid: 1, oid: 1, mode: 'ok',
+      user: null, seq: {}, nid: 1, eid: 1, oid: 1, mode: 'err',
       settings: { mail_to: 'mperez5@pan-energy.com', mail_cc: '', unidad_operativa: 'Coiled Tubing' },
       pads: PADS.map((p, i) => ({ id: i + 1, code: p.code, wells: p.wells.join(', '), area: '', active: 1, created_at: new Date(now).toISOString() })),
       users: USERS.map((u) => ({ ...u })), orders: [], notifications: [], audit: [],
@@ -87,9 +88,9 @@
   }
   function notify(o, user, action) {
     const ok = db.mode === 'ok';
-    const error = ok ? null : 'Versión de prueba: el envío real de correo está deshabilitado.';
+    const error = ok ? null : 'Versión de prueba: no se envió ningún correo. Los correos reales solo salen desde la app instalada en el servidor con el correo configurado.';
     const subject = `[PEDIDO DE COMBUSTIBLE CT] – ${o.pad_code} – ${fDate(o.required_date)}`;
-    db.notifications.push({ id: db.nid++, order_id: o.id, attempted_at: new Date().toISOString(), recipients: db.settings.mail_to, subject, success: ok ? 1 : 0, message_id: null, error, triggered_by: user.id, triggered_by_name: user.full_name });
+    db.notifications.push({ id: db.nid++, order_id: o.id, attempted_at: new Date().toISOString(), recipients: db.settings.mail_to + (ok ? SIM : ''), subject, success: ok ? 1 : 0, message_id: null, error, triggered_by: user.id, triggered_by_name: user.full_name });
     o.notification_status = ok ? 'Enviado correctamente' : 'Error de envío';
     audit(user, action, o.id, { resultado: ok ? 'enviado' : 'error', destinatarios: [db.settings.mail_to], error });
     if (ok && o.status === 'Solicitado') { o.status = 'Enviado a transportista'; audit(user, 'cambio_estado', o.id, { de: 'Solicitado', a: o.status, motivo: 'Notificación enviada a transportista' }); }
@@ -179,7 +180,7 @@
     let m;
     if (p === 'logout') { db.user = null; return { ok: true }; }
     if (p === 'me/password') throw new E(400, 'En la versión de prueba no se cambian contraseñas.');
-    if (p === 'meta') return { unit: db.settings.unidad_operativa, orderStatus: ORDER_STATUS, notifStatus: NOTIF_STATUS, today: today(), tz: TZ, mail: { provider: 'smtp', configured: true, missing: [], to: db.settings.mail_to, cc: db.settings.mail_cc } };
+    if (p === 'meta') return { unit: db.settings.unidad_operativa, orderStatus: ORDER_STATUS, notifStatus: NOTIF_STATUS, today: today(), tz: TZ, mail: { provider: 'smtp', configured: true, missing: [], to: db.settings.mail_to + (db.mode === 'ok' ? SIM : ' (versión de prueba: no se envía)'), cc: db.settings.mail_cc } };
     if (p === 'pads' && method === 'GET') {
       const all = q.get('all') === '1' && admin;
       return db.pads.filter((x) => all || x.active).map((x) => ({ ...x, orders_count: db.orders.filter((o) => o.pad_id === x.id).length })).sort((a, b) => a.code.localeCompare(b.code, 'es', { sensitivity: 'base' }));
@@ -296,11 +297,11 @@
   // Barra de la versión de prueba.
   function bar() {
     const el = document.getElementById('demoBar');
-    el.innerHTML = `<b>VERSIÓN DE PRUEBA</b><span>Datos de ejemplo · el correo no se envía · usuarios <code>admin</code> u <code>operador</code>, contraseña <code>prueba</code></span>
-      <label>Resultado del envío: <select id="demoMode"><option value="ok">Simular envío correcto</option><option value="err">Simular error de envío</option></select></label>
+    el.innerHTML = `<b>VERSIÓN DE PRUEBA</b><span>Datos de ejemplo · <b>no envía correos reales</b> · usuarios <code>admin</code> u <code>operador</code>, contraseña <code>prueba</code></span>
+      <label>Resultado del envío: <select id="demoMode"><option value="err">Sin envío (muestra error)</option><option value="ok">Simular envío correcto (no envía)</option></select></label>
       <button type="button" id="demoReset">Restablecer datos</button>`;
     const sel = document.getElementById('demoMode'); sel.value = db.mode;
-    sel.addEventListener('change', () => { db.mode = sel.value; save(); });
+    sel.addEventListener('change', () => { db.mode = sel.value; save(); location.reload(); });
     document.getElementById('demoReset').addEventListener('click', () => { const u = db.user; seed(); db.user = u; save(); location.hash = '#/inicio'; location.reload(); });
   }
   load();
