@@ -29,7 +29,6 @@
   const STATUS_CLASS = { Borrador: 'b-borrador', Solicitado: 'b-solicitado', 'Enviado a transportista': 'b-enviado', Entregado: 'b-entregado', Cancelado: 'b-cancelado' };
   const NOTIF_CLASS = { 'Enviado correctamente': 'b-n-ok', 'Pendiente de envío': 'b-n-pend', 'Error de envío': 'b-n-err' };
   const statusBadge = (s) => `<span class="badge ${STATUS_CLASS[s] || ''}">${esc(s)}</span>`;
-  const notifLabel = (o) => (o.status === 'Borrador' ? 'Sin enviar (borrador)' : (o.notification_status === 'Error de envío' ? 'Error de envío – pendiente de notificación' : o.notification_status));
   const notifBadge = (o) => `<span class="badge ${o.status === 'Borrador' ? 'b-borrador' : NOTIF_CLASS[o.notification_status] || ''}">${esc(o.status === 'Borrador' ? 'Sin enviar' : o.notification_status)}</span>`;
 
   // ---------- iconos ----------
@@ -579,7 +578,7 @@
         <dt>Solicitante</dt><dd>${esc(o.requester_name)}</dd>
         <dt>Observaciones</dt><dd>${esc(o.observations || '—')}</dd>
         <dt>Estado del pedido</dt><dd>${statusBadge(o.status)}${o.cancel_reason ? ` <span class="muted">Motivo: ${esc(o.cancel_reason)}</span>` : ''}</dd>
-        <dt>Notificación por correo</dt><dd>${notifBadge(o)} <span class="muted">${esc(notifLabel(o))}</span></dd>
+        <dt>Notificación por correo</dt><dd>${notifBadge(o)}${o.notification_status === 'Error de envío' && o.status !== 'Borrador' ? ' <span class="muted">Pendiente de notificación</span>' : ''}</dd>
       </dl>
       <div class="section-t">Intentos de notificación (${d.notifications.length})</div>
       ${d.notifications.length ? `<ul class="timeline">${d.notifications.map((n) => `<li class="${n.success ? 'ok' : 'err'}"><b>${n.success ? 'Enviado correctamente' : 'Error de envío'}</b>
@@ -603,7 +602,7 @@
       try {
         if (act === 'edit') { m.close(); location.hash = `#/nuevo?editar=${o.id}`; return; }
         if (act === 'cancel') return askCancel(o, refresh);
-        if (act === 'deliver' && !confirm(`¿Confirma que el pedido ${o.order_number} (${L(o.liters)} en ${o.pad_code}) fue ENTREGADO en locación?`)) return;
+        if (act === 'deliver' && !b.dataset.ok) return askDeliver(o, refresh);
         busy(b, true);
         if (act === 'submit' || act === 'resend') {
           const r = await api('POST', `/api/orders/${o.id}/${act}`);
@@ -615,6 +614,18 @@
         }
         refresh();
       } catch (err) { busy(b, false); toast(err.message, 'err'); }
+    });
+  }
+
+  function askDeliver(o, done) {
+    const m = modal({
+      title: `Confirmar entrega ${esc(o.order_number)}`,
+      body: `<p>¿Confirma que se entregaron <b>${L(o.liters)}</b> en <b>${esc(padWithWell(o))}</b>?</p><p class="muted">Marque la entrega solo cuando el combustible esté disponible en locación.</p>`,
+      foot: '<button class="btn" data-close>Volver</button><button class="btn ok" id="d-ok">Confirmar entrega</button>',
+    });
+    $('#d-ok', m.el).addEventListener('click', async (e) => {
+      busy(e.currentTarget, true);
+      try { await api('POST', `/api/orders/${o.id}/status`, { status: 'Entregado' }); m.close(); toast(`Pedido ${o.order_number}: Entregado.`, 'ok'); done(); } catch (err) { busy(e.currentTarget, false); toast(err.message, 'err'); }
     });
   }
 
