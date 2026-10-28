@@ -39,6 +39,27 @@ Verificación de la Fase 2:
 - Compilación y tipos sin errores.
 - Revisión visual de las seis pantallas en escritorio y celular.
 
+## Estado — Fase 3 (importador del maestro)
+
+En **PADs y Pozos → Importar Excel** (solo Administrador). Pasos: archivo (.xlsx o .csv, arrastrar o seleccionar) → hoja → mapeo de columnas (detección automática por nombre, editable) → vista previa → validación sin guardar → confirmación → resultado con reporte descargable.
+
+| Regla | Cómo se aplica |
+|---|---|
+| Identificación por código estable | PADs y pozos se buscan por código (sin distinguir mayúsculas); el nombre visible no es clave. |
+| Sin duplicados | Filas repetidas en el archivo se informan como “Duplicado”; reimportar el mismo archivo no crea ni cambia nada. |
+| Un pozo, un PAD | Un pozo que figura en dos PADs del archivo, o que ya existe en otro PAD, se rechaza con su número de fila. |
+| Actualización de datos maestros | Nombre, etapas planificadas y estado operativo se actualizan si vienen informados; los vacíos conservan el valor actual. Un PAD inactivo informado se reactiva. |
+| Historia intacta | No se borran PADs ni pozos; no se tocan pedidos, entregas, consumos, etapas ni inventario. |
+| Estructura insegura | Se detiene antes de enviar: falta la columna del PAD, columnas repetidas, sin datos, más de 5.000 filas o columna del PAD mayormente vacía. |
+| Transacción | Las filas válidas se importan en una sola operación; las filas con error se omiten. |
+| Seguridad | Solo Administrador. Las filas viajan como datos a `import_master`; no se arma SQL con el contenido del archivo. |
+| Registro | `import_logs`: usuario, fecha, archivo, hoja, filas, altas, actualizaciones, duplicados y errores (con número de fila). Visible para Administrador y Supervisión. |
+
+Verificación de la Fase 3:
+- 27 comprobaciones de base de datos, incluida la validación del Excel real: 1.273 filas, 227 pozos sin cambios, 1.005 duplicados y 41 filas sin PAD.
+- 4 pruebas unitarias de lectura y mapeo, también con el Excel real.
+- Revisión visual del asistente completo con respuestas reales de la base.
+
 **Pendiente de configuración externa:**
 - Crear el proyecto Supabase.
 - Más adelante, para la Fase 4, el registro de la aplicación en Microsoft Entra ID.
@@ -54,7 +75,7 @@ Verificación de la Fase 2:
      npx supabase link --project-ref <ref>
      npx supabase db push
      ```
-   - **SQL Editor del panel:** pegar y ejecutar cada archivo en orden (`…0001` a `…0005`).
+   - **SQL Editor del panel:** pegar y ejecutar cada archivo en orden (`…0001` a `…0006`).
 3. En **Authentication → URL Configuration**:
    - **Site URL:** la dirección de la app.
    - **Redirect URLs:** agregar `https://<app>/restablecer`.

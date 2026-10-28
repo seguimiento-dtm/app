@@ -1,11 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Pencil, Plus, Search } from 'lucide-react';
+import { ChevronRight, FileSpreadsheet, Pencil, Plus, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { can } from '../lib/roles';
 import { errorMessage } from '../lib/errors';
-import { integer, liters } from '../lib/format';
+import { dateTime, integer, liters } from '../lib/format';
+import { ImportWizard } from '../components/ImportWizard';
 import type { Pad, PadConsumption, Well } from '../lib/types';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Spinner, useToast } from '../components/ui';
 
@@ -29,6 +30,8 @@ export default function PadsWellsPage() {
   const [status, setStatus] = useState<StatusFilter>('activos');
   const [openPad, setOpenPad] = useState<string | null>(null);
   const [editPad, setEditPad] = useState<Pad | 'new' | null>(null);
+  const [importing, setImporting] = useState(false);
+  const canSeeImports = isAdmin || profile?.role === 'supervision';
 
   const view = useMemo(() => {
     if (!q.data) return [];
@@ -66,7 +69,10 @@ export default function PadsWellsPage() {
         eyebrow="Maestro operativo"
         title="PADs y Pozos"
         description="Catálogo de PADs y sus pozos. Solo los registros activos se ofrecen para nuevas operaciones; los históricos conservan su relación."
-        actions={isAdmin && <Button variant="primary" onClick={() => setEditPad('new')}><Plus className="h-4 w-4" /> Nuevo PAD</Button>}
+        actions={isAdmin && <>
+          <Button onClick={() => setImporting(true)}><FileSpreadsheet className="h-4 w-4" /> Importar Excel</Button>
+          <Button variant="primary" onClick={() => setEditPad('new')}><Plus className="h-4 w-4" /> Nuevo PAD</Button>
+        </>}
       />
 
       {q.isLoading && <Spinner />}
@@ -157,8 +163,58 @@ export default function PadsWellsPage() {
           onClose={() => setOpenPad(null)}
         />
       )}
+      {q.data && canSeeImports && <ImportHistory />}
+      {importing && <ImportWizard onClose={() => setImporting(false)} />}
       {editPad && <PadForm pad={editPad === 'new' ? null : editPad} onClose={() => setEditPad(null)} onSaved={(id) => { setEditPad(null); setOpenPad(id); }} />}
     </>
+  );
+}
+
+interface ImportLog {
+  id: string; file_name: string; sheet_name: string; rows_processed: number; pads_created: number; pads_updated: number;
+  wells_created: number; wells_updated: number; unchanged: number; duplicates: number; errors: number; imported_at: string; imported_by: string | null;
+}
+
+function ImportHistory() {
+  const q = useQuery({
+    queryKey: ['imports'],
+    queryFn: async () => {
+      const [logs, profiles] = await Promise.all([
+        supabase.from('import_logs').select('*').order('imported_at', { ascending: false }).limit(10),
+        supabase.from('profiles').select('id, full_name'),
+      ]);
+      if (logs.error) throw logs.error;
+      const names = new Map(((profiles.data ?? []) as { id: string; full_name: string }[]).map((p) => [p.id, p.full_name]));
+      return (logs.data as ImportLog[]).map((l) => ({ ...l, by: l.imported_by ? names.get(l.imported_by) ?? 'Usuario' : '—' }));
+    },
+  });
+  if (!q.data?.length) return null;
+  return (
+    <Card flush className="mt-6">
+      <h2 className="border-b border-slate-200 px-5 py-3.5 font-display text-lg font-bold text-navy-950">Importaciones recientes</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-[13px]">
+          <thead><tr className="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <th className="px-5 py-2.5">Fecha</th><th className="px-3 py-2.5">Usuario</th><th className="px-3 py-2.5">Archivo</th><th className="px-3 py-2.5 text-right">Filas</th>
+            <th className="px-3 py-2.5 text-right">Altas</th><th className="px-3 py-2.5 text-right">Actualiz.</th><th className="px-3 py-2.5 text-right">Duplicados</th><th className="px-5 py-2.5 text-right">Errores</th>
+          </tr></thead>
+          <tbody>
+            {q.data.map((l) => (
+              <tr key={l.id} className="border-t border-slate-100 tabular-nums">
+                <td className="whitespace-nowrap px-5 py-2.5">{dateTime(l.imported_at)}</td>
+                <td className="px-3 py-2.5">{l.by}</td>
+                <td className="px-3 py-2.5">{l.file_name}{l.sheet_name && <span className="text-slate-500"> · {l.sheet_name}</span>}</td>
+                <td className="px-3 py-2.5 text-right">{integer(l.rows_processed)}</td>
+                <td className="px-3 py-2.5 text-right">{integer(l.pads_created + l.wells_created)}</td>
+                <td className="px-3 py-2.5 text-right">{integer(l.pads_updated + l.wells_updated)}</td>
+                <td className="px-3 py-2.5 text-right">{integer(l.duplicates)}</td>
+                <td className={`px-5 py-2.5 text-right ${l.errors ? 'font-semibold text-red-700' : ''}`}>{integer(l.errors)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 

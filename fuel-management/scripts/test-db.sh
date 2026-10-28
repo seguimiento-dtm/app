@@ -21,6 +21,10 @@ for f in "$ROOT"/supabase/migrations/*.sql; do
 done
 echo "· carga inicial repetida (no debe duplicar)"
 "${PSQL[@]}" -f "$(ls "$ROOT"/supabase/migrations/*carga_inicial*.sql)"
+# Filas reales del Excel maestro para probar el importador (requiere npm install).
+node "$ROOT/scripts/excel-rows.mjs" "$ROOT/datos/WP_por_Pozos.xlsx" > "$TMP/excel_rows.json"
+chmod a+r "$TMP/excel_rows.json"
+PSQL+=(-v "excel_rows_file=$TMP/excel_rows.json")
 for f in "$ROOT"/supabase/tests/[1-9]*.sql; do
   echo "· pruebas $(basename "$f")"
   "${PSQL[@]}" -o /dev/null -f "$f"
