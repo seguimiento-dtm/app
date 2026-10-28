@@ -52,7 +52,7 @@ export default function DashboardPage() {
               <h2 className="mb-4 font-display text-lg font-bold text-navy-950">Consumo por PAD</h2>
               {d.byPad.length === 0 ? (
                 <EmptyState title="Todavía no hay consumos registrados">
-                  Los consumos se cargan por etapa realizada en “Registro de Etapas” (próxima fase). Este gráfico se completa solo a medida que se registran.
+                  Los consumos se cargan por etapa realizada en <Link to="/etapas" className="font-semibold text-navy-700 underline">Registro de Etapas</Link>. Este gráfico se completa solo a medida que se registran.
                 </EmptyState>
               ) : (
                 <ul className="space-y-3">

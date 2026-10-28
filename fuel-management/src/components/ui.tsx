@@ -12,6 +12,14 @@ const VARIANT: Record<Variant, string> = {
   ghost: 'bg-transparent text-navy-700 border-transparent hover:bg-navy-50',
 };
 
+/** Clases de botón para enlaces que se ven como botón (<a> o <Link>). */
+export const buttonClass = (variant: Variant = 'secondary', size: 'sm' | 'md' = 'md', className?: string) => cx(
+  'inline-flex items-center justify-center gap-2 rounded-lg border font-semibold transition duration-150 ease-out hover:-translate-y-px active:translate-y-0',
+  size === 'sm' ? 'min-h-[34px] px-3 text-[13px]' : 'min-h-[42px] px-4 text-sm',
+  VARIANT[variant],
+  className,
+);
+
 export function Button({ variant = 'secondary', size = 'md', loading, className, children, disabled, ...rest }:
   ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: 'sm' | 'md'; loading?: boolean }) {
   return (

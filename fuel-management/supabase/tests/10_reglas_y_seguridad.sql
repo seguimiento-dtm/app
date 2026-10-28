@@ -237,5 +237,3 @@ select tests.ok((select count(*) = 1 from public.audit_logs a join public.profil
   where a.table_name = 'fuel_orders' and a.action = 'insert' and p.email = 'log@prueba.test'), 'la auditoría registra quién creó el pedido');
 select tests.ok((select count(*) >= 2 from public.audit_logs where table_name = 'profiles' and action = 'update' and changed_by is not null), 'la auditoría registra los cambios de rol');
 
-set client_min_messages = warning;
-drop schema tests cascade;

@@ -8,7 +8,12 @@ import { ForgotPasswordPage, LoginPage, PendingPage, RegisterPage, ResetPassword
 import DashboardPage from './pages/Dashboard';
 import PadsWellsPage from './pages/PadsWells';
 import UsersPage from './pages/Users';
-import UpcomingPage, { UPCOMING } from './pages/Upcoming';
+import OrdersPage from './pages/Orders';
+import HistoryPage from './pages/History';
+import StagesPage from './pages/Stages';
+import DeliveriesPage from './pages/Deliveries';
+import InventoryPage from './pages/Inventory';
+import ReportPage from './pages/Report';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true, staleTime: 30_000 } } });
 
@@ -42,7 +47,12 @@ export default function App() {
                 <Route element={<AppLayout />}>
                   <Route index element={<DashboardPage />} />
                   <Route path="pads" element={<PadsWellsPage />} />
-                  {Object.entries(UPCOMING).map(([path, s]) => <Route key={path} path={path} element={<UpcomingPage s={s} />} />)}
+                  <Route path="pedidos" element={<OrdersPage />} />
+                  <Route path="historial" element={<HistoryPage />} />
+                  <Route path="etapas" element={<StagesPage />} />
+                  <Route path="entregas" element={<DeliveriesPage />} />
+                  <Route path="inventario" element={<InventoryPage />} />
+                  <Route path="reporte" element={<ReportPage />} />
                   <Route element={<RequireAuth roles={['administrador']} />}>
                     <Route path="usuarios" element={<UsersPage />} />
                   </Route>

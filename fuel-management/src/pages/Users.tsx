@@ -6,7 +6,8 @@ import { ROLE_DESCRIPTION, ROLE_LABEL, ROLES } from '../lib/roles';
 import { errorMessage } from '../lib/errors';
 import { dateTime } from '../lib/format';
 import type { AppRole, Profile } from '../lib/types';
-import { Alert, Badge, Button, Card, EmptyState, Modal, PageHeader, Select, Spinner, useToast } from '../components/ui';
+import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Spinner, useToast } from '../components/ui';
+import { useOrderRecipient } from '../lib/queries';
 
 interface AuditRow {
   id: number;
@@ -19,7 +20,7 @@ interface AuditRow {
 
 const TABLE_LABEL: Record<string, string> = {
   profiles: 'Usuario', pads: 'PAD', wells: 'Pozo', fracture_stages: 'Etapa', fuel_orders: 'Pedido',
-  fuel_deliveries: 'Entrega', fuel_consumption: 'Consumo', inventory_movements: 'Movimiento de stock',
+  fuel_deliveries: 'Entrega', fuel_consumption: 'Consumo', inventory_movements: 'Movimiento de stock', app_settings: 'Parámetro',
 };
 const ACTION_LABEL: Record<string, string> = { insert: 'Alta', update: 'Modificación', delete: 'Baja' };
 
@@ -107,6 +108,8 @@ export default function UsersPage() {
             </div>
           </Card>
 
+          <RecipientSetting />
+
           <Card>
             <h2 className="mb-1 font-display text-lg font-bold text-navy-950">Registro de auditoría</h2>
             <p className="mb-4 text-sm text-slate-600">Últimas 100 altas, modificaciones y bajas, registradas automáticamente por la base de datos.</p>
@@ -175,5 +178,34 @@ function EditUser({ user, busy, onClose, onSave }: { user: Profile; busy: boolea
         <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={active} onChange={(e) => setActive(e.target.checked)} /> Acceso habilitado
       </label>
     </Modal>
+  );
+}
+
+function RecipientSetting() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const current = useOrderRecipient();
+  const [value, setValue] = useState<string | null>(null);
+  const shown = value ?? current.data ?? '';
+  const save = useMutation({
+    mutationFn: async () => {
+      const v = shown.trim();
+      if (!/^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/.test(v)) throw new Error('Ingrese una dirección de correo válida.');
+      const r = await supabase.from('app_settings').update({ value: v }).eq('key', 'order_recipient').select('key');
+      if (r.error) throw r.error;
+      if (!r.data?.length) throw new Error('Solo un administrador puede modificar este parámetro.');
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['settings'] }); qc.invalidateQueries({ queryKey: ['audit'] }); setValue(null); toast('Destinatario actualizado.', 'success'); },
+    onError: (e) => toast(errorMessage(e), 'error'),
+  });
+  return (
+    <Card>
+      <h2 className="mb-1 font-display text-lg font-bold text-navy-950">Destinatario de los pedidos</h2>
+      <p className="mb-4 text-sm text-slate-600">Dirección a la que se dirigen las solicitudes de combustible. El cambio queda en la auditoría.</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Correo" htmlFor="set-recipient" className="min-w-[260px] flex-1"><Input id="set-recipient" type="email" value={shown} onChange={(e) => setValue(e.target.value)} /></Field>
+        <Button variant="primary" loading={save.isPending} disabled={value === null || value.trim() === current.data} onClick={() => save.mutate()}>Guardar</Button>
+      </div>
+    </Card>
   );
 }

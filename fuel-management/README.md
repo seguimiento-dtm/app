@@ -19,7 +19,25 @@ Las reglas operativas y los permisos se aplican **en la base de datos** (`supaba
 | Maestro de PADs y pozos desde `datos/WP_por_Pozos.xlsx` | 92 PADs y 227 pozos (migración idempotente) | Probado, incluida la carga repetida sin duplicar |
 | Ingreso, solicitud de acceso, recuperación de contraseña, aprobación de usuarios | Implementado | Compilación, tipos y revisión visual. **Falta probar contra un proyecto Supabase real.** |
 | Pantallas: Dashboard, PADs y Pozos, Administración de Usuarios | Implementado y conectado a la base | Revisión visual en escritorio y celular |
-| Pedidos, Historial, Etapas, Entregas, Inventario, Reporte | Pantalla informativa “próxima fase” | La base ya tiene las tablas, reglas y permisos |
+| Pedidos, Historial, Etapas, Entregas, Inventario, Reporte | Implementado en la Fase 2 (ver abajo) | — |
+
+## Estado — Fase 2 (operación)
+
+| Sección | Qué hace | Reglas que aplica la base |
+|---|---|---|
+| Pedidos de Combustible | Alta por viajes con volumen calculado y confirmación; borrador; pedidos abiertos con avance | Viajes × 43.000 L; PAD activo; numeración automática |
+| Historial de Pedidos | Búsqueda, filtros, orden, detalle con entregas, exportación CSV | Sin borrado; transiciones borrador → solicitado → enviado; cancelación con motivo y solo sin entregas |
+| Correo del pedido | Borrador con destinatario configurable, “Copiar texto” y “Abrir en Outlook” en la cuenta del usuario | El envío automático por Microsoft 365 queda para la Fase 4 |
+| Registro de Etapas | Etapas por pozo, planificación 1..N, registro de etapa realizada con consumo en una operación, corrección de litros, cancelación | Un consumo por etapa; no en canceladas; fecha no futura; pozo activo |
+| Entregas de Combustible | Registro contra pedido abierto, litros sugeridos, remito, corrección | Remito único; solo pedidos vigentes; el pedido pasa a entregado parcial/total |
+| Inventario y Stock | Stock por PAD y consolidado, verificación física y diferencia, movimientos con saldo, exportación | Stock inicial único por PAD; ajustes/salidas/transferencias con motivo; sin edición ni borrado |
+| Reporte Gerencial | Período y PAD: consumo, promedio, entregado, solicitado y cumplimiento; evolución semanal; detalle por PAD; CSV | Calculado desde los registros |
+| Administración | Destinatario de los pedidos (parámetro auditado) | Solo administrador |
+
+Verificación de la Fase 2:
+- 26 comprobaciones nuevas de base de datos (transiciones, etapas, permisos, vistas).
+- Compilación y tipos sin errores.
+- Revisión visual de las seis pantallas en escritorio y celular.
 
 **Pendiente de configuración externa:**
 - Crear el proyecto Supabase.
@@ -36,7 +54,7 @@ Las reglas operativas y los permisos se aplican **en la base de datos** (`supaba
      npx supabase link --project-ref <ref>
      npx supabase db push
      ```
-   - **SQL Editor del panel:** pegar y ejecutar cada archivo en orden (`…0001`, `…0002`, `…0003`, `…0004`).
+   - **SQL Editor del panel:** pegar y ejecutar cada archivo en orden (`…0001` a `…0005`).
 3. En **Authentication → URL Configuration**:
    - **Site URL:** la dirección de la app.
    - **Redirect URLs:** agregar `https://<app>/restablecer`.
