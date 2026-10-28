@@ -25,3 +25,10 @@ export const LEDGER_SOURCE_LABEL: Record<string, string> = {
   stock_inicial: 'Stock inicial', ajuste_ingreso: 'Ajuste (ingreso)', ajuste_egreso: 'Ajuste (egreso)', salida: 'Salida',
   transferencia_salida: 'Transferencia enviada', transferencia_ingreso: 'Transferencia recibida', entrega: 'Entrega', consumo: 'Consumo de etapa',
 };
+
+export const NOTIFICATION_LABEL: Record<'no_enviado' | 'pendiente' | 'aceptado' | 'error', string> = {
+  no_enviado: 'Correo sin enviar', pendiente: 'Envío en curso', aceptado: 'Aceptado por Microsoft 365', error: 'Error de envío',
+};
+export const NOTIFICATION_TONE: Record<'no_enviado' | 'pendiente' | 'aceptado' | 'error', 'gray' | 'amber' | 'green' | 'red'> = {
+  no_enviado: 'gray', pendiente: 'amber', aceptado: 'green', error: 'red',
+};

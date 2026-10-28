@@ -60,6 +60,21 @@ Verificación de la Fase 3:
 - 4 pruebas unitarias de lectura y mapeo, también con el Excel real.
 - Revisión visual del asistente completo con respuestas reales de la base.
 
+## Estado — Fase 4 (envío desde el Outlook del usuario)
+
+Implementado y **deshabilitado por defecto**, hasta que TI complete la configuración de Microsoft Entra ID. La guía para TI está en **[INTEGRACION_MICROSOFT.md](INTEGRACION_MICROSOFT.md)**.
+
+- **Ingreso con Microsoft:** pide solo los permisos delegados `openid email profile offline_access User.Read Mail.Send`. Al ingresar, la función `microsoft-link` vincula la cuenta: verifica que coincida con el usuario y guarda el token de renovación cifrado en un esquema privado.
+- **Envío:** la función `send-order-email` valida sesión, rol, pedido, habilitación e identidad. Envía con Microsoft Graph desde la cuenta del usuario al destinatario configurado y registra el resultado en `email_dispatches`. El pedido queda “Aceptado por Microsoft 365”, nunca “Entregado”.
+- **Duplicados:** un pedido no puede tener dos envíos en curso o aceptados. Un error permite reintentar, y un intento sin respuesta se cierra a los 10 minutos.
+- **Interfaz:** “Enviar desde mi Outlook” con vista previa en el correo del pedido, historial de envíos en el detalle e interruptor de habilitación en Administración. Sin habilitación quedan el borrador, “Copiar texto” y “Abrir en Outlook”.
+
+Verificación de la Fase 4:
+- 25 comprobaciones de base de datos.
+- 8 pruebas de las funciones de servidor con Microsoft simulado: envío aceptado, cuenta ajena, autorización vencida, rechazo de Graph, pedido ya enviado y falta de configuración.
+- Revisión de tipos de las funciones (`npm run typecheck:functions`).
+- **No se probó contra Microsoft 365 real:** requiere la configuración de TI y una cuenta autorizada (ver el plan de prueba en la guía).
+
 **Pendiente de configuración externa:**
 - Crear el proyecto Supabase.
 - Más adelante, para la Fase 4, el registro de la aplicación en Microsoft Entra ID.
@@ -75,7 +90,8 @@ Verificación de la Fase 3:
      npx supabase link --project-ref <ref>
      npx supabase db push
      ```
-   - **SQL Editor del panel:** pegar y ejecutar cada archivo en orden (`…0001` a `…0006`).
+     Las funciones de servidor del envío por Outlook se publican aparte (ver INTEGRACION_MICROSOFT.md).
+   - **SQL Editor del panel:** pegar y ejecutar cada archivo en orden (`…0001` a `…0007`).
 3. En **Authentication → URL Configuration**:
    - **Site URL:** la dirección de la app.
    - **Redirect URLs:** agregar `https://<app>/restablecer`.

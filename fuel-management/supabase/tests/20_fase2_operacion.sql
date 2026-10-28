@@ -10,7 +10,7 @@ select tests.ok((select value = 'mperez5@pan-energy.com' from public.app_setting
 select tests.login('admin@prueba.test');
 set role authenticated;
 update public.app_settings set value = 'mperez5@pan-energy.com' where key = 'order_recipient';
-select tests.ok((select count(*) = 1 from public.audit_logs where table_name = 'app_settings'), 'el cambio de parámetros queda auditado');
+select tests.ok((select count(*) = 1 from public.audit_logs where table_name = 'app_settings' and action = 'update'), 'el cambio de parámetros queda auditado');
 update public.pads set active = false where code = 'PRUEBA-PAD-B';
 update public.wells set active = false where code = 'PRUEBA-POZO-2';
 reset role;

@@ -7,7 +7,7 @@ import { errorMessage } from '../lib/errors';
 import { dateTime } from '../lib/format';
 import type { AppRole, Profile } from '../lib/types';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Spinner, useToast } from '../components/ui';
-import { useOrderRecipient } from '../lib/queries';
+import { useEmailSending, useMyMicrosoftLink, useOrderRecipient } from '../lib/queries';
 
 interface AuditRow {
   id: number;
@@ -109,6 +109,7 @@ export default function UsersPage() {
           </Card>
 
           <RecipientSetting />
+          <EmailSendingSetting />
 
           <Card>
             <h2 className="mb-1 font-display text-lg font-bold text-navy-950">Registro de auditoría</h2>
@@ -205,6 +206,42 @@ function RecipientSetting() {
       <div className="flex flex-wrap items-end gap-3">
         <Field label="Correo" htmlFor="set-recipient" className="min-w-[260px] flex-1"><Input id="set-recipient" type="email" value={shown} onChange={(e) => setValue(e.target.value)} /></Field>
         <Button variant="primary" loading={save.isPending} disabled={value === null || value.trim() === current.data} onClick={() => save.mutate()}>Guardar</Button>
+      </div>
+    </Card>
+  );
+}
+
+function EmailSendingSetting() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const enabled = useEmailSending();
+  const link = useMyMicrosoftLink();
+  const toggle = useMutation({
+    mutationFn: async (on: boolean) => {
+      const r = await supabase.from('app_settings').update({ value: on ? 'true' : 'false' }).eq('key', 'email_sending_enabled').select('key');
+      if (r.error) throw r.error;
+      if (!r.data?.length) throw new Error('Solo un administrador puede modificar este parámetro.');
+      return on;
+    },
+    onSuccess: (on) => { qc.invalidateQueries({ queryKey: ['settings'] }); qc.invalidateQueries({ queryKey: ['audit'] }); toast(on ? 'Envío desde Outlook habilitado.' : 'Envío desde Outlook deshabilitado.', 'success'); },
+    onError: (e) => toast(errorMessage(e), 'error'),
+  });
+  return (
+    <Card>
+      <h2 className="mb-1 font-display text-lg font-bold text-navy-950">Envío de pedidos desde Outlook (Microsoft 365)</h2>
+      <p className="mb-4 max-w-3xl text-sm text-slate-600">
+        Con el envío habilitado, Logística y Administración pueden enviar cada pedido desde su propia cuenta de Outlook, previa revisión del correo.
+        Requiere que TI haya registrado la aplicación en Microsoft Entra ID y cargado la configuración en el servidor (ver INTEGRACION_MICROSOFT.md).
+        Habilítelo solo después de probarlo con una cuenta autorizada.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge tone={enabled.data ? 'green' : 'gray'}>{enabled.data ? 'Habilitado' : 'Deshabilitado'}</Badge>
+        <Button loading={toggle.isPending} variant={enabled.data ? 'danger' : 'primary'} onClick={() => toggle.mutate(!enabled.data)}>
+          {enabled.data ? 'Deshabilitar envío' : 'Habilitar envío'}
+        </Button>
+        <span className="text-sm text-slate-600">
+          Su cuenta: {link.data ? <>vinculada con <b>{link.data.ms_email}</b></> : 'sin vincular (ingrese con Microsoft para vincularla)'}
+        </span>
       </div>
     </Card>
   );

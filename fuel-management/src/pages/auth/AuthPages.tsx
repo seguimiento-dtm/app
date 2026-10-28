@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Droplet } from 'lucide-react';
-import { supabase, microsoftLoginEnabled } from '../../lib/supabase';
+import { MICROSOFT_SCOPES, supabase, microsoftLoginEnabled } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { errorMessage } from '../../lib/errors';
 import { Alert, Button, Field, Input } from '../../components/ui';
@@ -46,7 +46,7 @@ export function LoginPage() {
 
   async function microsoft() {
     setError(null);
-    const { error: err } = await supabase.auth.signInWithOAuth({ provider: 'azure', options: { scopes: 'email', redirectTo: window.location.origin } });
+    const { error: err } = await supabase.auth.signInWithOAuth({ provider: 'azure', options: { scopes: MICROSOFT_SCOPES, redirectTo: window.location.origin } });
     if (err) setError(errorMessage(err));
   }
 

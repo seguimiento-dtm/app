@@ -4,7 +4,7 @@ import { BarChart3, ClipboardList, Droplet, Fuel, Gauge, History, Layers, LogOut
 import { useAuth } from '../lib/auth';
 import { ROLE_LABEL } from '../lib/roles';
 import type { AppRole } from '../lib/types';
-import { Spinner } from './ui';
+import { Alert, Spinner } from './ui';
 
 export const NAV: { to: string; label: string; Icon: typeof Gauge; roles?: AppRole[] }[] = [
   { to: '/', label: 'Dashboard Operativo', Icon: Gauge },
@@ -30,7 +30,7 @@ export function RequireAuth({ roles }: { roles?: AppRole[] }) {
 }
 
 export function AppLayout() {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, linkNotice, clearLinkNotice } = useAuth();
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   useEffect(() => setOpen(false), [loc.pathname]);
@@ -97,6 +97,12 @@ export function AppLayout() {
         </div>
       )}
       <main className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-7 sm:px-6 lg:px-10 lg:pt-10">
+        {linkNotice && (
+          <div className="mb-5 flex items-start gap-2">
+            <Alert tone={linkNotice.tone} className="flex-1">{linkNotice.text}</Alert>
+            <button onClick={clearLinkNotice} aria-label="Cerrar aviso" className="rounded-md p-2 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

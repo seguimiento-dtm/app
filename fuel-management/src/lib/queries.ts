@@ -49,3 +49,30 @@ export function useOrders(filter: 'abiertos' | 'todos' = 'todos') {
 
 /** Claves que dependen de pedidos, entregas, etapas o movimientos (para refrescar tras cambios). */
 export const OPERATIONAL_KEYS = [['orders'], ['order'], ['deliveries'], ['stages'], ['stock'], ['movements'], ['dashboard'], ['catalog'], ['report']];
+
+export function useEmailSending() {
+  return useQuery({
+    queryKey: ['settings', 'email_sending_enabled'],
+    queryFn: async () => {
+      const r = await rows<{ value: string } | null>(supabase.from('app_settings').select('value').eq('key', 'email_sending_enabled').maybeSingle());
+      return r?.value === 'true';
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useMyMicrosoftLink() {
+  return useQuery({
+    queryKey: ['microsoft-link'],
+    queryFn: async () => {
+      const r = await rows<{ ms_email: string; linked_at: string }[]>(supabase.rpc('my_microsoft_link'));
+      return r[0] ?? null;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export interface Dispatch {
+  id: string; order_id: string; sender_email: string; recipient: string; subject: string;
+  status: 'enviando' | 'aceptado' | 'error'; error_code: string | null; error_message: string | null; created_at: string; finished_at: string | null;
+}
