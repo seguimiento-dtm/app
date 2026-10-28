@@ -35,7 +35,7 @@ Las reglas operativas y los permisos se aplican **en la base de datos** (`supaba
 | Administración | Destinatario de los pedidos (parámetro auditado) | Solo administrador |
 
 Verificación de la Fase 2:
-- 26 comprobaciones nuevas de base de datos (transiciones, etapas, permisos, vistas).
+- 27 comprobaciones nuevas de base de datos (transiciones, etapas, permisos, vistas).
 - Compilación y tipos sin errores.
 - Revisión visual de las seis pantallas en escritorio y celular.
 
