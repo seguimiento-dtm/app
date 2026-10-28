@@ -283,7 +283,7 @@
     const d = await api('GET', `/api/dashboard?period=${state.period}`);
     const k = d.kpi;
     view.innerHTML = `
-      <div class="page-h"><h1>Panel de pedidos de combustible</h1><p class="sub">Unidad ${esc(state.meta.unit)} · datos actualizados al ${fDateTime(new Date().toISOString())}</p></div>
+      <div class="page-h"><span class="eyebrow">Resumen operativo</span><h1>Panel de pedidos de combustible</h1><p class="sub">Unidad ${esc(state.meta.unit)} · datos actualizados al ${fDateTime(new Date().toISOString())}</p></div>
       ${mailBanner()}
       ${isAdmin() && state.meta.pendingUsers ? `<div class="alert info">${icon('users')}<p><b>Hay ${state.meta.pendingUsers} solicitud(es) de usuario para revisar.</b> <a href="#/usuarios">Ir a Usuarios</a></p></div>` : ''}
       <div class="shortcuts">
@@ -386,7 +386,7 @@
     let idemKey = uuid();
 
     view.innerHTML = `
-      <div class="page-h"><h1>${order ? `Modificar pedido ${esc(order.order_number)}` : 'Nuevo Pedido'}</h1>
+      <div class="page-h"><span class="eyebrow">Solicitud de combustible</span><h1>${order ? `Modificar pedido ${esc(order.order_number)}` : 'Nuevo Pedido'}</h1>
         <p class="sub">${order ? `Estado actual: ${esc(order.status)}` : 'Complete los datos y envíe la solicitud. La transportista será notificada por correo electrónico.'}</p></div>
       ${order ? '' : mailBanner()}
       <div id="result"></div>
@@ -560,7 +560,7 @@
     if (qs.get('pend')) { Object.assign(h, { pend: '1', notif: '', status: '' }); }
     const opt = (list, cur) => list.map((s) => `<option ${s === cur ? 'selected' : ''}>${esc(s)}</option>`).join('');
     view.innerHTML = `
-      <div class="page-h"><h1>Historial de Pedidos</h1><p class="sub">Todos los pedidos registrados, incluidos los cancelados.</p></div>
+      <div class="page-h"><span class="eyebrow">Trazabilidad</span><h1>Historial de Pedidos</h1><p class="sub">Todos los pedidos registrados, incluidos los cancelados.</p></div>
       <div class="card">
         <form class="filters" id="filters" autocomplete="off">
           <div class="field"><label for="h-q">Buscar por N.º de pedido, PAD o pozo</label><input class="input" id="h-q" type="search" placeholder="Ej.: CT-2026-00012, LA-WP130 o LA-750(h)" value="${esc(h.q || '')}"></div>
@@ -576,7 +576,7 @@
           <button class="btn sm" id="h-clear" type="button">Limpiar filtros</button>
           <a class="btn sm" id="h-export" href="#">${icon('download')} Exportar a Excel (CSV)</a></div>
         <div class="tbl-wrap"><table class="tbl" id="h-table"><thead><tr>
-          <th>${sortBtn('numero', 'N.º pedido')}</th><th>${sortBtn('fecha', 'Fecha solicitud')}</th><th>${sortBtn('entrega', 'Fecha requerida')}</th>
+          <th>${sortBtn('numero', 'N.º pedido')}</th><th>${sortBtn('fecha', 'Solicitud')}</th><th>${sortBtn('entrega', 'Entrega')}</th>
           <th>${sortBtn('pad', 'PAD / Locación')}</th><th class="r">${sortBtn('cantidad', 'Litros')}</th><th>Solicitante</th><th>Estado</th><th>Notificación</th></tr></thead>
           <tbody><tr><td colspan="8" class="empty">Cargando…</td></tr></tbody></table></div>
       </div>`;
@@ -603,7 +603,7 @@
       const total = rows.reduce((a, o) => a + (o.status === 'Cancelado' || o.status === 'Borrador' ? 0 : o.liters), 0);
       $('#h-count').textContent = `${N(rows.length)} pedido(s) · ${L(total)} activos`;
       $('#h-table tbody').innerHTML = rows.length ? rows.map((o) => `<tr class="click ${o.status === 'Cancelado' ? 'off' : ''}" data-id="${o.id}" tabindex="0">
-          <td class="mono">${esc(o.order_number)}</td><td>${fDateTime(o.request_date)}</td><td>${fDate(o.required_date)}</td>
+          <td class="mono">${esc(o.order_number)}</td><td>${fDateOnly(o.request_date)}<br><span class="muted">${fDateTime(o.request_date).slice(11)} h</span></td><td>${fDate(o.required_date)}</td>
           <td>${esc(o.pad_code)}${o.well ? `<br><span class="muted">${esc(o.well)}</span>` : ''}</td><td class="r num">${L(o.liters)}</td>
           <td>${esc(o.requester_name)}</td><td>${statusBadge(o.status)}</td><td>${notifBadge(o)}</td></tr>`).join('')
         : '<tr><td colspan="8" class="empty">No se encontraron pedidos con los filtros aplicados.</td></tr>';
@@ -739,7 +739,7 @@
   async function renderPads(view) {
     const pads = await api('GET', '/api/pads?all=1');
     view.innerHTML = `
-      <div class="page-h"><h1>Administración de PAD</h1>
+      <div class="page-h"><span class="eyebrow">Maestros</span><h1>Administración de PAD</h1>
         <button class="btn" id="padImport">${icon('download')} Importar listado Excel</button><input type="file" id="padFile" class="hidden" accept=".xlsx,.csv">
         <button class="btn primary" id="padNew">${icon('plus')} Nuevo PAD</button>
         <p class="sub">Solo los PAD activos aparecen en el formulario de nuevos pedidos. Los pedidos históricos conservan el nombre del PAD al momento de la solicitud.</p></div>
@@ -837,7 +837,7 @@
     const stateBadge = (u) => (u.approval_status === 'rechazado' ? '<span class="badge b-n-err">Rechazado</span>'
       : u.active ? '<span class="badge b-entregado">Activo</span>' : '<span class="badge b-borrador">Inactivo</span>');
     view.innerHTML = `
-      <div class="page-h"><h1>Usuarios</h1><button class="btn primary" id="uNew">${icon('plus')} Nuevo usuario</button>
+      <div class="page-h"><span class="eyebrow">Accesos</span><h1>Usuarios</h1><button class="btn primary" id="uNew">${icon('plus')} Nuevo usuario</button>
         <p class="sub">Operador: genera pedidos y consulta el historial. Administrador: además gestiona PAD, usuarios y configuración.</p></div>
       ${pending.length ? `<section class="card pend-card"><h2>Solicitudes pendientes de aprobación (${pending.length})</h2>
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nombre</th><th>Usuario</th><th>Correo</th><th>Solicitado</th><th>Perfil a asignar</th><th></th></tr></thead><tbody>
@@ -916,7 +916,7 @@
   async function renderConfig(view) {
     const { settings, mail } = await api('GET', '/api/settings');
     view.innerHTML = `
-      <div class="page-h"><h1>Configuración</h1><p class="sub">Parámetros de notificación. Las credenciales del servidor de correo se configuran solo en el servidor (archivo .env), nunca en esta pantalla.</p></div>
+      <div class="page-h"><span class="eyebrow">Parámetros</span><h1>Configuración</h1><p class="sub">Parámetros de notificación. Las credenciales del servidor de correo se configuran solo en el servidor (archivo .env), nunca en esta pantalla.</p></div>
       <div class="grid">
         <section class="card"><h2>Estado del servicio de correo</h2>
           ${mail.configured ? `<div class="alert ok">${icon('ok')}<p>Proveedor <b>${esc(mail.provider.toUpperCase())}</b> configurado en el servidor. Use “Enviar correo de prueba” para verificar la conexión.</p></div>`
@@ -947,7 +947,7 @@
   // =============== AUDITORÍA ===============
   async function renderAudit(view) {
     const rows = await api('GET', '/api/audit?limit=500');
-    view.innerHTML = `<div class="page-h"><h1>Auditoría</h1><p class="sub">Últimas 500 acciones registradas (creación, modificación, cancelación, notificaciones, PAD, usuarios y configuración).</p></div>
+    view.innerHTML = `<div class="page-h"><span class="eyebrow">Registro de acciones</span><h1>Auditoría</h1><p class="sub">Últimas 500 acciones registradas (creación, modificación, cancelación, notificaciones, PAD, usuarios y configuración).</p></div>
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Detalle</th></tr></thead><tbody>
       ${rows.map((r) => `<tr><td>${fDateTime(r.at)}</td><td>${esc(r.user_name || '')}</td><td>${esc(ACTION_LABEL[r.action] || r.action.replace(/_/g, ' '))}</td><td>${esc(r.entity)}${r.entity_id ? ` #${r.entity_id}` : ''}</td>
         <td class="muted">${r.entity === 'pedido' ? eventDetail(r) : esc(r.details === '{}' ? '' : r.details)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Sin registros.</td></tr>'}</tbody></table></div>`;
