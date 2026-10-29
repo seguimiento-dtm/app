@@ -11,7 +11,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:db": "bash scripts/test-db.sh",
-    "typecheck:functions": "tsc -p supabase/functions/tsconfig.json"
+    "typecheck:functions": "tsc -p supabase/functions/tsconfig.json",
+    "demo": "node demo/build-demo.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

@@ -6,7 +6,7 @@ export function errorMessage(err: unknown): string {
   if (code === '42501' || /row-level security|permission denied/i.test(msg)) {
     return 'Su rol no tiene permiso para realizar esta operación.';
   }
-  if (code === '23505' || /duplicate key/i.test(msg)) {
+  if (/duplicate key/i.test(msg)) {
     if (/pads_code/.test(msg)) return 'Ya existe un PAD con ese código.';
     if (/wells_code/.test(msg)) return 'Ya existe un pozo con ese código.';
     return 'Ya existe un registro con esos datos.';

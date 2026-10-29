@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './lib/auth';
 import { supabaseConfigured } from './lib/supabase';
@@ -14,6 +14,9 @@ import StagesPage from './pages/Stages';
 import DeliveriesPage from './pages/Deliveries';
 import InventoryPage from './pages/Inventory';
 import ReportPage from './pages/Report';
+
+/** Demo autocontenida (sin servidor): navegación en memoria, porque no hay rutas de URL reales. */
+const Router = import.meta.env.VITE_DEMO === 'true' ? MemoryRouter : BrowserRouter;
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true, staleTime: 30_000 } } });
 
@@ -36,7 +39,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <AuthProvider>
-          <BrowserRouter>
+          <Router>
             <Routes>
               <Route path="/ingresar" element={<LoginPage />} />
               <Route path="/registro" element={<RegisterPage />} />
@@ -60,7 +63,7 @@ export default function App() {
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          </BrowserRouter>
+          </Router>
         </AuthProvider>
       </ToastProvider>
     </QueryClientProvider>

@@ -20,6 +20,8 @@ describe('mensajes de error', () => {
     expect(errorMessage({ code: '42501', message: 'new row violates row-level security policy' })).toMatch(/permiso/);
     expect(errorMessage({ code: '23505', message: 'duplicate key value violates unique constraint "pads_code_unico"' })).toBe('Ya existe un PAD con ese código.');
     expect(errorMessage({ message: 'Solo se puede registrar consumo en etapas realizadas' })).toMatch(/etapas realizadas/);
+    // Los mensajes propios de la base con código de duplicado se muestran tal cual.
+    expect(errorMessage({ code: '23505', message: 'La etapa 1 del pozo LA-750(h) ya tiene consumo registrado.' })).toBe('La etapa 1 del pozo LA-750(h) ya tiene consumo registrado.');
   });
 });
 

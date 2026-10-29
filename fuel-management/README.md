@@ -115,6 +115,15 @@ npm run build                # genera dist/ para publicar
 - **Claves:** solo se usa la clave pública `anon`. La clave `service_role` nunca va en el frontend.
 - **Publicación:** `dist/` se publica en cualquier hosting estático. Se incluyen `public/_redirects` (Netlify) y `vercel.json` (Vercel) para que las rutas funcionen al recargar.
 
+## Demo sin servidor
+
+`npm run demo` genera `demo/fuel-management-demo.html`: una sola página con la aplicación compilada y un servidor simulado en el navegador (`demo/mock-backend.js`).
+
+- **Qué replica:** permisos por rol, validaciones, cálculos de stock y consumo, e importador.
+- **Datos:** trae los 92 PADs y 227 pozos del maestro y datos de ejemplo marcados como demo. Se guardan solo en el navegador de quien la abre.
+- **Correo:** no envía correos reales.
+- **Usuarios:** `admin@`, `logistica@`, `operaciones@` y `supervision@demo.test`, contraseña `prueba`.
+
 ## Pruebas
 ```bash
 npm test          # pruebas unitarias del frontend
