@@ -1,0 +1,923 @@
+{
+ "fuente": "Seguimiento DTM - PAN AMERICAN ENERGY",
+ "esquema": "seguimiento-dtm-feed/1",
+ "generado": "2026-10-29T08:21-03:00",
+ "zona_horaria": "America/Buenos_Aires (UTC-03:00)",
+ "cantidad_eventos": 1,
+ "eventos": [
+  {
+   "id": "31dce85fpv0x1k",
+   "equipo": "PAE-001",
+   "contratista": "DLS",
+   "origen": "CASE-528",
+   "destino": "CASE-536",
+   "km": 0.36,
+   "inicio": "2026-10-14T21:45-03:00",
+   "hora_inicio_definida": true,
+   "dias_plan": 5.0,
+   "dias_evento": 5,
+   "estado": "cerrado",
+   "cierre": "2026-10-19T15:00-03:00",
+   "avance_real_pct": 100.0,
+   "tareas_total": 53,
+   "tareas_completas": 53,
+   "npt_total_horas": 38.5,
+   "tiempos": {
+    "total_horas": 113.25,
+    "total_dias": 4.72,
+    "npt_horas": 38.5,
+    "neto_horas": 74.75,
+    "neto_dias": 3.11,
+    "plan_dias": 5.0,
+    "diferencia_total_dias": -0.28,
+    "diferencia_neto_dias": -1.89
+   },
+   "curva_diaria": [
+    {
+     "dia": 1,
+     "inicio_dia": "2026-10-14T21:45-03:00",
+     "plan_pct": 22.6,
+     "real_pct": 9.6,
+     "npt_horas": 21.25,
+     "novedades": ""
+    },
+    {
+     "dia": 2,
+     "inicio_dia": "2026-10-15T21:45-03:00",
+     "plan_pct": 45.3,
+     "real_pct": 34.2,
+     "npt_horas": 17.25,
+     "novedades": ""
+    },
+    {
+     "dia": 3,
+     "inicio_dia": "2026-10-16T21:45-03:00",
+     "plan_pct": 64.2,
+     "real_pct": 70.9,
+     "npt_horas": 0,
+     "novedades": ""
+    },
+    {
+     "dia": 4,
+     "inicio_dia": "2026-10-17T21:45-03:00",
+     "plan_pct": 84.9,
+     "real_pct": 84.9,
+     "npt_horas": 0,
+     "novedades": "Debido a avances de tareas planificadas, se realizan:\n* Prueba de BOP completa"
+    },
+    {
+     "dia": 5,
+     "inicio_dia": "2026-10-18T21:45-03:00",
+     "plan_pct": 100.0,
+     "real_pct": 100.0,
+     "npt_horas": 0,
+     "novedades": ""
+    }
+   ],
+   "tareas": [
+    {
+     "id": "31dce85ffuofzv",
+     "nombre": "Empaqueta Pozo",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 2,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "1": 20.0,
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fi17ian",
+     "nombre": "Desmonta CRT, Amelas + Elevador + Baja Herramientas",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 1,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "1": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85f8cw4r6",
+     "nombre": "Flushing líneas MPD + DLS",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 2,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "1": 20.0,
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fb4bwhl",
+     "nombre": "Desmonta RCD + Líneas MPD",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 3,
+     "desvio_dias": 2,
+     "avance_por_dia": {
+      "1": 20.0,
+      "2": 50.0,
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fjhqql5",
+     "nombre": "Baja Plano Inclinado y retira Pipe Cat",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 2,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "1": 20.0,
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fgfz26i",
+     "nombre": "Desmonta mangueras de Acumulador _ Stack BOP (Trabajos de bandera)",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 3,
+     "desvio_dias": 2,
+     "avance_por_dia": {
+      "1": 20.0,
+      "2": 0.0,
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85f1oi0p4",
+     "nombre": "Desmonta MPD_UMTC (Coriolis_Lineas de Panico_Golpeador) + Evacua sector y moviliza",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 2,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "1": 20.0,
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fgj27ps",
+     "nombre": "Evacuación lodo de Piletas #1 , #2 y #3",
+     "tipo": "paralela",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 1,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "1": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fme9opd",
+     "nombre": "Limpia fondo piletas + Traspasar Lodo a piletas auxiliares",
+     "tipo": "paralela",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 2,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "1": 50.0,
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85f7bpxx4",
+     "nombre": "Desmontar Cía. MPD y retirar camino crítico",
+     "tipo": "paralela",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 3,
+     "desvio_dias": 2,
+     "avance_por_dia": {
+      "1": 60.0,
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fp70mop",
+     "nombre": "Desmontar zona interfieren en piletas 1, 2 y 3 Cías. control solido y piletas aux",
+     "tipo": "paralela",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 2,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "1": 60.0,
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fikm8wn",
+     "nombre": "Desmontar Cía. SILOS",
+     "tipo": "paralela",
+     "fase": "Desmontaje",
+     "dia_plan": 1,
+     "avance_pct": 100,
+     "dia_inicio_real": 1,
+     "dia_fin_real": 3,
+     "desvio_dias": 2,
+     "avance_por_dia": {
+      "1": 20.0,
+      "2": 0.0,
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fqk84sj",
+     "nombre": "Desenergiza Bombas de lodo y circuito piletas",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 2,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85f8y588e",
+     "nombre": "Desmonta Línea pánico + Choke Manifold + Risers",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 2,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fbxiwja",
+     "nombre": "Desmonta Manguerotes + Ground Manifold",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 2,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fg1bokx",
+     "nombre": "Cía. Servicios, desmontan total del camino crítico",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 2,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fene6q7",
+     "nombre": "Desmonta derivador de zarandas",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 2,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fhpl8xf",
+     "nombre": "Desmonta Patín de Zarandas y acondiciona Patín de Golpeador_TripTank",
+     "tipo": "critica",
+     "fase": "Desmontaje",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 2,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "2": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fhn3qbn",
+     "nombre": "Desvincula piletas 1, 2 y 3. y posicionan - encuadran en pozo CASE-536",
+     "tipo": "critica",
+     "fase": "Transporte",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 3,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "2": 60.0,
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fxfddi8",
+     "nombre": "Mueve y posiciona Bombas de lodo 1, 2 y 3 + Sobrealimentadora + Ground Manifold",
+     "tipo": "critica",
+     "fase": "Transporte",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 3,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "2": 60.0,
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fg7eq6n",
+     "nombre": "Realiza WKS del equipo a pozo CASE-536. (36 mtrs)",
+     "tipo": "critica",
+     "fase": "Transporte",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85f6f2mks",
+     "nombre": "Limpia fondo piletas",
+     "tipo": "paralela",
+     "fase": "Desmontaje",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 3,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "2": 60.0,
+      "3": 100.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fmnohel",
+     "nombre": "Acondiciona Bombas lodo y líneas",
+     "tipo": "paralela",
+     "fase": "Desmontaje",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 3,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "2": 60.0,
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fc178e4",
+     "nombre": "Caballetes de playa en posición de no interferencia",
+     "tipo": "paralela",
+     "fase": "Desmontaje",
+     "dia_plan": 2,
+     "avance_pct": 100,
+     "dia_inicio_real": 2,
+     "dia_fin_real": 3,
+     "desvio_dias": 1,
+     "avance_por_dia": {
+      "2": 65.0,
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fl0oauo",
+     "nombre": "Mueve y posiciona Generación (Festoon_Generadores_VFD_Tank Gas Oil)",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 3,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85f0396gg",
+     "nombre": "Moviliza y posiciona Piletas # 4, 5 y 6",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 3,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85f2p50jy",
+     "nombre": "Posiciona y vincula Derivador de Flujo_ Zarandas",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 3,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 100.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85f75dhh4",
+     "nombre": "Posiciona Pipe Cat",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 3,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fe0yy2r",
+     "nombre": "Posiciona Choke Manifold",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 3,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fvosfq2",
+     "nombre": "Acondicionar Festoon y Plugpanel. Energizar",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 3,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 100.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fl1as7x",
+     "nombre": "Limpieza total de piletas",
+     "tipo": "paralela",
+     "fase": "Montaje",
+     "dia_plan": 3,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fdjhn3m",
+     "nombre": "Almacena agua en piletas",
+     "tipo": "paralela",
+     "fase": "Montaje",
+     "dia_plan": 3,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 100.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fp7dil3",
+     "nombre": "Posiciona Acumulador y realiza trabajos de Bandera",
+     "tipo": "paralela",
+     "fase": "Montaje",
+     "dia_plan": 3,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 100.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fpvrno8",
+     "nombre": "Trabajos de soldadura planificados",
+     "tipo": "paralela",
+     "fase": "Montaje",
+     "dia_plan": 3,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 100.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fcoxryj",
+     "nombre": "Acondiciona Bombas de lodo. (Camisas)",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 4,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 60.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fdxdun3",
+     "nombre": "Vincula y acondiciona circuito de piletas",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 4,
+     "dia_fin_real": 4,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fgodsx7",
+     "nombre": "Posiciona tanques y Usina",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 4,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 50.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85f18cmwt",
+     "nombre": "Acondiciona Generación + VFD + Energiza",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 4,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 50.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fw3i8ae",
+     "nombre": "Armado de lineas de alta - STP",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 4,
+     "dia_fin_real": 4,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fyvhcmi",
+     "nombre": "Acondiciona Derivador y zarandas",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 4,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 60.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85ffmbtoe",
+     "nombre": "Posiciona y conecta Flow line",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 4,
+     "dia_fin_real": 4,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fr227go",
+     "nombre": "Posicionamiento de MPD",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 4,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "3": 40.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85feeh2iz",
+     "nombre": "Armar línea de venteo",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 4,
+     "dia_fin_real": 4,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fl8o1mc",
+     "nombre": "Realiza trabajos en bandera de acumulador",
+     "tipo": "paralela",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 3,
+     "dia_fin_real": 3,
+     "desvio_dias": -1,
+     "avance_por_dia": {
+      "3": 100.0,
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85ffcdy2e",
+     "nombre": "Trabajos de soldadura planificados",
+     "tipo": "paralela",
+     "fase": "Montaje",
+     "dia_plan": 4,
+     "avance_pct": 100,
+     "dia_inicio_real": 4,
+     "dia_fin_real": 4,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "4": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85ffd9c4e",
+     "nombre": "Acondiciona telas de zarandas",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 5,
+     "avance_pct": 100,
+     "dia_inicio_real": 5,
+     "dia_fin_real": 5,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "5": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fvbcrfw",
+     "nombre": "Acondiciona piso de trabajo",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 5,
+     "avance_pct": 100,
+     "dia_inicio_real": 5,
+     "dia_fin_real": 5,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "5": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fieqyrj",
+     "nombre": "Armar línea de pánico DLS + Golpeador",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 5,
+     "avance_pct": 100,
+     "dia_inicio_real": 5,
+     "dia_fin_real": 5,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "5": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fzy9d9e",
+     "nombre": "Realiza Prueba funcional",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 5,
+     "avance_pct": 100,
+     "dia_inicio_real": 5,
+     "dia_fin_real": 5,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "5": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85f2206g0",
+     "nombre": "Posiciona BOP en boca de pozo",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 5,
+     "avance_pct": 100,
+     "dia_inicio_real": 5,
+     "dia_fin_real": 5,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "5": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fkeeb18",
+     "nombre": "Fin DTM",
+     "tipo": "critica",
+     "fase": "Montaje",
+     "dia_plan": 5,
+     "avance_pct": 100,
+     "dia_inicio_real": 5,
+     "dia_fin_real": 5,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "5": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fbd79t1",
+     "nombre": "Prepara lodo",
+     "tipo": "paralela",
+     "fase": "Montaje",
+     "dia_plan": 5,
+     "avance_pct": 100,
+     "dia_inicio_real": 5,
+     "dia_fin_real": 5,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "5": 100.0
+     },
+     "observaciones": ""
+    },
+    {
+     "id": "31dce85fhek1w1",
+     "nombre": "Posicionamiento de MPD",
+     "tipo": "paralela",
+     "fase": "Montaje",
+     "dia_plan": 5,
+     "avance_pct": 100,
+     "dia_inicio_real": 5,
+     "dia_fin_real": 5,
+     "desvio_dias": 0,
+     "avance_por_dia": {
+      "5": 100.0
+     },
+     "observaciones": ""
+    }
+   ],
+   "npt": [
+    {
+     "dia": 1,
+     "desde": "2026-10-14T21:45-03:00",
+     "hasta": "2026-10-15T19:00-03:00",
+     "horas": 21.25,
+     "detalle": "Espera Fragüe de Cemento"
+    },
+    {
+     "dia": 2,
+     "desde": "2026-10-16T01:00-03:00",
+     "hasta": "2026-10-16T18:15-03:00",
+     "horas": 17.25,
+     "detalle": "Realiza Bullheading + Espera Fragüe de Cemento"
+    }
+   ],
+   "actualizado": "2026-10-19T23:01-03:00"
+  }
+ ]
+}
